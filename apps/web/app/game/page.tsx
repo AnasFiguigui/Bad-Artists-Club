@@ -165,14 +165,23 @@ export default function GamePage() {
     const requestState = async () => {
       try {
         await waitForSocketConnection(sock)
-        sock.emit('request-game-state', { roomId }, (response: { success: boolean; room: Room | null }) => {
+        sock.emit('request-game-state', { roomId }, (response: { success: boolean; room: (Room & { canvasStrokes?: DrawStroke[] }) | null }) => {
           if (response.success && response.room && !roomLoaded) {
             console.log('[Game] Got game state from request-game-state')
-            setRoom(response.room)
-            gameStore.setState({ room: response.room })
-            setIsDrawer(response.room.drawer === sock.id)
-            if (response.room.state === 'results') {
+            const { canvasStrokes, ...roomData } = response.room
+            setRoom(roomData)
+            gameStore.setState({ room: roomData })
+            setIsDrawer(roomData.drawer === sock.id)
+            if (roomData.state === 'results') {
               setGameEnded(true)
+            }
+            // Replay existing canvas strokes for mid-game joiners
+            if (canvasStrokes && canvasStrokes.length > 0) {
+              setTimeout(() => {
+                for (const stroke of canvasStrokes) {
+                  canvasRef.current?.drawStroke(stroke)
+                }
+              }, 100)
             }
             roomLoaded = true
             clearTimeout(roundTimeout)
@@ -293,6 +302,17 @@ export default function GamePage() {
   const handleUpdateSettings = (settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }) => {
     if (socket && roomId) {
       socket.emit('update-settings', { roomId, settings }, () => {})
+    }
+  }
+
+  const handleEndGame = () => {
+    if (socket && roomId) {
+      socket.emit('end-game', { roomId }, (response: { success: boolean; error?: string }) => {
+        if (!response.success) {
+          setNotification(response.error || 'Failed to end game')
+          setTimeout(() => setNotification(null), 3000)
+        }
+      })
     }
   }
 
@@ -544,12 +564,16 @@ export default function GamePage() {
               </button>
             </div>
             <div className="space-y-3">
+              {!gameEnded && (
+                <p className="text-yellow-400 text-xs italic">Settings can only be changed after the game ends.</p>
+              )}
               <div>
                 <label className="text-xs text-gray-400 block mb-1">Theme</label>
                 <select
                   value={room.theme}
                   onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                  disabled={!gameEnded}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="lol">League of Legends</option>
                   <option value="elden-ring">Elden Ring</option>
@@ -561,7 +585,8 @@ export default function GamePage() {
                 <select
                   value={room.totalRounds}
                   onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                  disabled={!gameEnded}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {[3, 5, 8, 10].map((r) => (
                     <option key={r} value={r}>{r} rounds</option>
@@ -573,7 +598,8 @@ export default function GamePage() {
                 <select
                   value={room.drawTime}
                   onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                  disabled={!gameEnded}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {[60, 90, 120].map((t) => (
                     <option key={t} value={t}>{t} seconds</option>
@@ -585,7 +611,8 @@ export default function GamePage() {
                 <select
                   value={room.maxPlayers}
                   onChange={(e) => handleUpdateSettings({ maxPlayers: Number(e.target.value) })}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                  disabled={!gameEnded}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
                     <option key={n} value={n}>{n} players</option>
@@ -593,6 +620,14 @@ export default function GamePage() {
                 </select>
               </div>
             </div>
+            {!gameEnded && (
+              <button
+                onClick={() => { handleEndGame(); setShowSettingsModal(false) }}
+                className="w-full mt-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors text-sm"
+              >
+                End Game
+              </button>
+            )}
           </div>
         </div>
       )}

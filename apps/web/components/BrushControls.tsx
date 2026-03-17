@@ -124,20 +124,30 @@ export function BrushControls({
       {/* Divider */}
       <div className="w-px h-8 bg-gray-700 hidden sm:block" />
 
-      {/* Size slider */}
-      <div className="flex items-center gap-2">
-        <div
-          className="rounded-full bg-white shrink-0"
-          style={{ width: Math.max(brushSize, 4), height: Math.max(brushSize, 4), maxWidth: 24, maxHeight: 24 }}
-        />
-        <input
-          type="range"
-          min={1}
-          max={30}
-          value={brushSize}
-          onChange={(e) => handleSizeChange(Number(e.target.value))}
-          className="w-16 sm:w-20 accent-purple-500"
-        />
+      {/* Size buttons */}
+      <div className="flex items-center gap-1">
+        {([
+          { size: 2, radius: 2 },
+          { size: 5, radius: 3.5 },
+          { size: 10, radius: 5.5 },
+          { size: 18, radius: 8 },
+          { size: 30, radius: 11 },
+        ] as const).map(({ size, radius }) => (
+          <button
+            key={size}
+            onClick={() => handleSizeChange(size)}
+            title={`Size ${size}`}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors ${
+              brushSize === size
+                ? 'bg-purple-600 ring-2 ring-purple-400'
+                : 'bg-gray-800 hover:bg-gray-700'
+            }`}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r={radius} fill={brushSize === size ? 'white' : '#9ca3af'} />
+            </svg>
+          </button>
+        ))}
       </div>
 
       {/* Divider */}

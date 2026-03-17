@@ -17,6 +17,7 @@ export default function RoomPage() {
   const [loading, setLoading] = useState(true)
   const [socket, setSocket] = useState<any>(null)
   const [roomIdCopied, setRoomIdCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
     if (!username) {
@@ -145,6 +146,13 @@ export default function RoomPage() {
     setTimeout(() => setRoomIdCopied(false), 2000)
   }
 
+  const handleCopyLink = () => {
+    const link = `${globalThis.location.origin}/room/${roomId}`
+    navigator.clipboard.writeText(link)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   const handleStartGame = () => {
     if (!socket) return
     socket.emit('start-game', { roomId }, (response: { success: boolean; error?: string }) => {
@@ -178,6 +186,8 @@ export default function RoomPage() {
 
   const isHost = room.host === socket?.id
   const allReady = room.players.every((p) => p.ready)
+  const themeLabels: Record<string, string> = { lol: 'League of Legends', 'elden-ring': 'Elden Ring', dbd: 'Dead by Daylight' }
+  const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪' }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-4 sm:p-8">
@@ -187,14 +197,24 @@ export default function RoomPage() {
             <h1 className="text-3xl sm:text-4xl font-bold text-white">Lobby</h1>
             <p className="text-gray-400 text-sm mt-1">Room: <span className="text-purple-400 font-mono">{room.id}</span></p>
           </div>
-          <button
-            onClick={handleCopyRoomId}
-            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-              roomIdCopied ? 'bg-green-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
-            }`}
-          >
-            {roomIdCopied ? '✓ Copied!' : '📋 Copy Room ID'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyLink}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                linkCopied ? 'bg-green-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+            >
+              {linkCopied ? '✓ Link Copied!' : '🔗 Copy Invite Link'}
+            </button>
+            <button
+              onClick={handleCopyRoomId}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                roomIdCopied ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+              }`}
+            >
+              {roomIdCopied ? '✓ Copied!' : '📋 Room ID'}
+            </button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -210,9 +230,9 @@ export default function RoomPage() {
                     onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
                     className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
                   >
-                    <option value="lol">League of Legends</option>
-                    <option value="elden-ring">Elden Ring</option>
-                    <option value="dbd">Dead by Daylight</option>
+                    <option value="lol">⚔️ League of Legends</option>
+                    <option value="elden-ring">🗡️ Elden Ring</option>
+                    <option value="dbd">🔪 Dead by Daylight</option>
                   </select>
                 </div>
                 <div>
@@ -256,9 +276,7 @@ export default function RoomPage() {
               <div className="space-y-3 text-gray-300">
                 <div className="flex justify-between items-center py-2 border-b border-gray-800">
                   <span className="text-gray-400">Theme</span>
-                  <span className="text-white font-medium">
-                    {room.theme === 'lol' ? 'League of Legends' : room.theme === 'elden-ring' ? 'Elden Ring' : 'Dead by Daylight'}
-                  </span>
+                  <span className="text-white font-medium">{themeEmojis[room.theme]} {themeLabels[room.theme]}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-800">
                   <span className="text-gray-400">Rounds</span>
@@ -272,6 +290,7 @@ export default function RoomPage() {
                   <span className="text-gray-400">Max Players</span>
                   <span className="text-white font-medium">{room.maxPlayers}</span>
                 </div>
+                <p className="text-gray-500 text-xs italic pt-2">Only the host can change settings</p>
               </div>
             )}
           </div>

@@ -33,11 +33,18 @@ export class GameManager {
   private readonly timers: Map<string, NodeJS.Timeout> = new Map()
   private readonly roundStartTimes: Map<string, number> = new Map()
   private readonly characterData: Map<string, CharacterData[]> = new Map()
+  private readonly canvasStrokes: Map<string, DrawStroke[]> = new Map()
 
   constructor(io: Server, roomManager: RoomManager) {
     this.io = io
     this.roomManager = roomManager
     this.loadCharacterData()
+  }
+
+  /** Strip sensitive fields (answer) from room before broadcasting to guessers */
+  private sanitizeRoom(room: Room): Room {
+    const { answer, ...safe } = room
+    return safe as Room
   }
 
   private loadCharacterData(): void {
@@ -80,6 +87,7 @@ export class GameManager {
     if (typeof name !== 'string') throw new Error('Invalid username')
     const trimmed = name.trim()
     if (trimmed.length < 1 || trimmed.length > 20) throw new Error('Username must be 1-20 characters')
+    if (!/^[a-zA-Z0-9_ \-]{1,20}$/.test(trimmed)) throw new Error('Username can only contain letters, numbers, spaces, hyphens, and underscores')
     return trimmed
   }
 
@@ -123,7 +131,7 @@ export class GameManager {
     console.log(`[Room] Room ${roomId} now has ${updatedRoom.players.length} players, state: ${updatedRoom.state}`)
 
     // Notify OTHER players that someone joined
-    socket.to(roomId).emit('player-joined', updatedRoom)
+    socket.to(roomId).emit('player-joined', this.sanitizeRoom(updatedRoom))
 
     // Return room data — caller sends it back via callback
     // Client checks room.state to know if game is already in progress
@@ -196,6 +204,9 @@ export class GameManager {
 
     this.roomManager.setDrawer(roomId, drawer.id)
     this.roomManager.resetCorrectGuessers(roomId)
+
+    // Clear canvas strokes for new turn
+    this.canvasStrokes.set(roomId, [])
 
     // Select character
     const character = this.selectRandomCharacter(room.theme)
@@ -274,18 +285,21 @@ export class GameManager {
   }
 
   // Called by game page on mount to recover state after navigation
-  handleRequestGameState(socket: Socket, roomId: string): Room | null {
+  handleRequestGameState(socket: Socket, roomId: string): (Room & { canvasStrokes?: DrawStroke[] }) | null {
     const room = this.roomManager.getRoom(roomId)
     if (!room) return null
 
     const isPlayer = room.players.some((p: { id: string }) => p.id === socket.id)
     if (!isPlayer) return null
 
+    // Include canvas strokes for mid-game joiners
+    const strokes = this.canvasStrokes.get(roomId) || []
+
     // Drawer sees the answer, others don't
     if (room.drawer === socket.id) {
-      return { ...room }
+      return { ...room, canvasStrokes: strokes }
     }
-    return { ...room, answer: undefined }
+    return { ...room, answer: undefined, canvasStrokes: strokes }
   }
 
   handleDraw(socket: Socket, stroke: DrawStroke): void {
@@ -302,12 +316,28 @@ export class GameManager {
     }
 
     const room = this.roomManager.getRoom(stroke.roomId)
-    // In 'results' state, allow everyone to draw (free draw mode)
+    // In 'results' state, allow everyone in the room to draw (free draw mode)
     if (room?.state === 'results') {
+      if (!room.players.some((p: { id: string }) => p.id === socket.id)) return
+
+      // Store stroke for mid-game joiners (capped)
+      const freeStrokes = this.canvasStrokes.get(stroke.roomId) || []
+      if (freeStrokes.length < 2000) {
+        freeStrokes.push(stroke)
+        this.canvasStrokes.set(stroke.roomId, freeStrokes)
+      }
+
       socket.to(stroke.roomId).emit('draw', stroke)
       return
     }
     if (!room?.drawer || room.drawer !== socket.id) return
+
+    // Store stroke for mid-game joiners (cap at 2000 strokes per room)
+    const strokes = this.canvasStrokes.get(stroke.roomId) || []
+    if (strokes.length < 2000) {
+      strokes.push(stroke)
+      this.canvasStrokes.set(stroke.roomId, strokes)
+    }
 
     // BUG FIX: Only broadcast to OTHER players (drawer already sees their own strokes)
     socket.to(stroke.roomId).emit('draw', stroke)
@@ -486,6 +516,7 @@ export class GameManager {
     if (timer) clearInterval(timer)
     this.timers.delete(roomId)
     this.roundStartTimes.delete(roomId)
+    this.canvasStrokes.delete(roomId)
 
     this.roomManager.resetGameForRestart(roomId)
 
@@ -496,6 +527,26 @@ export class GameManager {
     setTimeout(() => {
       this.startTurn(roomId)
     }, 1500)
+  }
+
+  handleEndGame(socket: Socket, roomId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.host !== socket.id) throw new Error('Only host can end game')
+    if (room.state !== 'playing') throw new Error('Game is not in progress')
+
+    console.log(`[Game] Host ending game early in room ${roomId}`)
+
+    // Clear any running timers
+    const timer = this.timers.get(roomId)
+    if (timer) clearInterval(timer)
+    this.timers.delete(roomId)
+    this.roundStartTimes.delete(roomId)
+
+    this.roomManager.updateRoomState(roomId, 'results')
+    this.roomManager.syncPlayerScores(roomId)
+    const finalRoom = this.roomManager.getRoom(roomId)!
+    this.io.to(roomId).emit('game-ended', finalRoom)
   }
 
   handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string } {
@@ -544,6 +595,7 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.host !== socket.id) throw new Error('Only the host can update settings')
+    if (room.state === 'playing') throw new Error('Cannot change settings while game is in progress')
 
     const validThemes = ['lol', 'elden-ring', 'dbd']
     const validRounds = [3, 5, 8, 10]
@@ -563,7 +615,7 @@ export class GameManager {
       room.maxPlayers = settings.maxPlayers
     }
 
-    this.io.to(roomId).emit('settings-updated', room)
+    this.io.to(roomId).emit('settings-updated', this.sanitizeRoom(room))
   }
 
   handleKickPlayer(socket: Socket, roomId: string, targetId: string): void {
@@ -594,7 +646,7 @@ export class GameManager {
 
     const updatedRoom = this.roomManager.getRoom(roomId)
     if (updatedRoom) {
-      this.io.to(roomId).emit('player-left', updatedRoom)
+      this.io.to(roomId).emit('player-left', this.sanitizeRoom(updatedRoom))
       this.io.to(roomId).emit('chat-message', {
         userId: 'system',
         username: 'System',
@@ -610,6 +662,9 @@ export class GameManager {
     if (!room) throw new Error('Room not found')
     if (room.state !== 'results' && room.drawer !== socket.id) throw new Error('Only the drawer can clear')
 
+    // Clear stored strokes
+    this.canvasStrokes.set(roomId, [])
+
     // Broadcast clear to ALL players in the room (including sender)
     this.io.to(roomId).emit('canvas-cleared')
   }
@@ -618,6 +673,12 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.state !== 'results' && room.drawer !== socket.id) throw new Error('Only the drawer can undo')
+
+    // Remove last stroke from stored history
+    const strokes = this.canvasStrokes.get(roomId)
+    if (strokes && strokes.length > 0) {
+      strokes.pop()
+    }
 
     // Broadcast undo to all other players (sender already undid locally)
     socket.to(roomId).emit('undo')
@@ -631,6 +692,7 @@ export class GameManager {
       if (timer) clearInterval(timer)
       this.timers.delete(room.id)
       this.roundStartTimes.delete(room.id)
+      this.canvasStrokes.delete(room.id)
       this.roomManager.deleteRoom(room.id)
       console.log(`[Room] Deleted empty room ${room.id}`)
       return
@@ -656,6 +718,6 @@ export class GameManager {
       this.endTurn(room.id)
     }
 
-    this.io.to(room.id).emit('player-left', updatedRoom)
+    this.io.to(room.id).emit('player-left', this.sanitizeRoom(updatedRoom))
   }
 }

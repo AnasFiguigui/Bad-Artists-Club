@@ -24,6 +24,28 @@ app.use(express.json())
 const roomManager = new RoomManager()
 const gameManager = new GameManager(io, roomManager)
 
+// Per-IP connection limit
+const connectionsPerIp = new Map<string, number>()
+const MAX_CONNECTIONS_PER_IP = 10
+
+io.use((socket, next) => {
+  const ip = socket.handshake.address
+  const count = connectionsPerIp.get(ip) || 0
+  if (count >= MAX_CONNECTIONS_PER_IP) {
+    return next(new Error('Too many connections from this IP'))
+  }
+  connectionsPerIp.set(ip, count + 1)
+  socket.on('disconnect', () => {
+    const current = connectionsPerIp.get(ip) || 1
+    if (current <= 1) {
+      connectionsPerIp.delete(ip)
+    } else {
+      connectionsPerIp.set(ip, current - 1)
+    }
+  })
+  next()
+})
+
 // Simple per-socket rate limiter
 const rateLimits = new Map<string, Map<string, number[]>>()
 
@@ -42,6 +64,10 @@ function rateLimit(socketId: string, event: string, max: number, windowMs: numbe
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' })
 })
+
+function isValidRoomId(roomId: unknown): roomId is string {
+  return typeof roomId === 'string' && /^[a-zA-Z0-9-]{1,36}$/.test(roomId)
+}
 
 // Socket.IO events
 io.on('connection', (socket: Socket) => {
@@ -72,6 +98,10 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('ready', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'ready', 5, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       console.log(`ready event - socket.id: ${socket.id}, roomId: ${data.roomId}`)
       gameManager.handleReady(socket, data.roomId)
@@ -82,6 +112,10 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('start-game', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'start-game', 2, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       console.log(`start-game event - socket.id: ${socket.id}, roomId: ${data.roomId}`)
       gameManager.handleStartGame(socket, data.roomId)
@@ -109,13 +143,32 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('request-game-state', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'request-game-state', 5, 5000)) {
+      return callback({ success: false, room: null })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, room: null })
     const room = gameManager.handleRequestGameState(socket, data.roomId)
     callback({ success: !!room, room })
   })
 
   socket.on('restart-game', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'restart-game', 2, 10000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
     try {
       gameManager.handleRestartGame(socket, data.roomId)
+      callback({ success: true })
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
+  socket.on('end-game', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'end-game', 2, 10000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    try {
+      gameManager.handleEndGame(socket, data.roomId)
       callback({ success: true })
     } catch (error) {
       callback({ success: false, error: (error as Error).message })
@@ -135,6 +188,9 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('skip-turn', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'skip-turn', 2, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
     try {
       gameManager.handleSkipTurn(socket, data.roomId)
       callback({ success: true })
@@ -144,6 +200,9 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('kick-player', (data: { roomId: string; targetId: string }, callback) => {
+    if (!rateLimit(socket.id, 'kick-player', 3, 10000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
     try {
       gameManager.handleKickPlayer(socket, data.roomId, data.targetId)
       callback({ success: true })
@@ -153,6 +212,9 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('update-settings', (data: { roomId: string; settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number } }, callback) => {
+    if (!rateLimit(socket.id, 'update-settings', 5, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
     try {
       gameManager.handleUpdateSettings(socket, data.roomId, data.settings)
       callback({ success: true })
@@ -162,6 +224,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('clear-canvas', (data: { roomId: string }) => {
+    if (!rateLimit(socket.id, 'clear-canvas', 5, 5000)) return
     try {
       gameManager.handleClearCanvas(socket, data.roomId)
     } catch (error) {
@@ -170,6 +233,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('undo', (data: { roomId: string }) => {
+    if (!rateLimit(socket.id, 'undo', 10, 5000)) return
     try {
       gameManager.handleUndo(socket, data.roomId)
     } catch (error) {
