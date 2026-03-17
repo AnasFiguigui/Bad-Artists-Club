@@ -131,6 +131,14 @@ io.on('connection', (socket: Socket) => {
     }
   })
 
+  socket.on('undo', (data: { roomId: string }) => {
+    try {
+      gameManager.handleUndo(socket, data.roomId)
+    } catch (error) {
+      console.error('[Undo] Error:', error)
+    }
+  })
+
   socket.on('leave-room', () => {
     gameManager.handleLeaveRoom(socket)
   })

@@ -513,6 +513,15 @@ export class GameManager {
     this.io.to(roomId).emit('canvas-cleared')
   }
 
+  handleUndo(socket: Socket, roomId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.drawer !== socket.id) throw new Error('Only the drawer can undo')
+
+    // Broadcast undo to all other players (drawer already undid locally)
+    socket.to(roomId).emit('undo')
+  }
+
   private cleanupAfterLeave(room: Room, leftSocketId: string): void {
     const updatedRoom = this.roomManager.getRoom(room.id)
 

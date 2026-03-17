@@ -31,7 +31,7 @@ export interface DrawStroke {
   userId: string
   color: string
   size: number
-  tool: 'brush' | 'eraser'
+  tool: 'brush' | 'eraser' | 'fill'
   points: { x: number; y: number }[]
 }
 

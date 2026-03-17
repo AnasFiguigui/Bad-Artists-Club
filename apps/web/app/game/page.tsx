@@ -26,6 +26,8 @@ export default function GamePage() {
   const [finalRoom, setFinalRoom] = useState<Room | null>(null)
   const [cooldown, setCooldown] = useState(0)
   const [muted, setMuted] = useState(false)
+  const [showReference, setShowReference] = useState(true)
+  const [mobilePanel, setMobilePanel] = useState<'canvas' | 'chat' | 'players'>('canvas')
 
   const canvasRef = useRef<CanvasHandle>(null)
 
@@ -125,6 +127,10 @@ export default function GamePage() {
       canvasRef.current?.clear()
     })
 
+    sock.on('undo', () => {
+      canvasRef.current?.undo()
+    })
+
     sock.on('reroll', ({ hint }: { hint: string }) => {
       setRoom((prev) => prev ? { ...prev, hint } : prev)
     })
@@ -178,6 +184,7 @@ export default function GamePage() {
       sock.off('turn-cooldown')
       sock.off('game-restarted')
       sock.off('canvas-cleared')
+      sock.off('undo')
       sock.off('reroll')
       sock.off('kicked')
     }
@@ -222,6 +229,13 @@ export default function GamePage() {
     if (socket && roomId) {
       canvasRef.current?.clear()
       socket.emit('clear-canvas', { roomId })
+    }
+  }
+
+  const handleUndo = () => {
+    if (socket && roomId) {
+      canvasRef.current?.undo()
+      socket.emit('undo', { roomId })
     }
   }
 
@@ -325,6 +339,7 @@ export default function GamePage() {
         isDrawer={isDrawer}
         answer={room.answer}
         hint={room.hint}
+        roundAnswer={roundAnswer}
         timeRemaining={timeRemaining}
         totalTime={room.drawTime}
         round={room.round}
@@ -335,33 +350,43 @@ export default function GamePage() {
         onToggleMute={() => setMuted(!muted)}
       />
 
-      {/* Notification banner */}
+      {/* Floating toast notifications */}
       {notification && (
-        <div className="px-4 py-2 bg-blue-600 text-white text-sm text-center font-medium">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-blue-600/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-pulse">
           {notification}
         </div>
       )}
-
-      {/* Cooldown banner */}
       {cooldown > 0 && (
-        <div className="px-4 py-2 bg-indigo-700 text-white text-sm text-center font-bold animate-pulse">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-700/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-pulse">
           Next turn in {cooldown}...
         </div>
       )}
 
-      {/* Answer reveal */}
-      {roundAnswer && (
-        <div className="px-4 py-2 bg-yellow-600 text-white text-sm text-center font-bold">
-          The answer was: {roundAnswer}
-        </div>
-      )}
+      {/* Mobile tab bar */}
+      <div className="flex md:hidden border-b border-gray-800 bg-gray-900/80 shrink-0">
+        {(['canvas', 'players', 'chat'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setMobilePanel(tab)}
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
+              mobilePanel === tab
+                ? 'text-purple-400 border-b-2 border-purple-400'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {tab === 'canvas' ? '🎨 Draw' : tab === 'players' ? '👥 Players' : '💬 Chat'}
+          </button>
+        ))}
+      </div>
 
-      {/* Main content: Left sidebar | Canvas center | Right sidebar */}
+      {/* Main content */}
       <div className="flex-1 flex min-h-0">
-        {/* Left sidebar: Players + Round info */}
-        <div className="w-56 shrink-0 flex flex-col border-r border-gray-800 bg-gray-900/50">
+        {/* Left sidebar: Players + Round info + Drawer tools — hidden on mobile unless "players" tab */}
+        <div className={`w-full md:w-56 shrink-0 flex flex-col md:border-r border-gray-800 bg-gray-900/50 ${
+          mobilePanel === 'players' ? 'flex' : 'hidden'
+        } md:flex`}>
           {/* Round info */}
-          <div className="px-3 py-2 border-b border-gray-700/50">
+          <div className="px-3 py-2 border-b border-gray-700/50 shrink-0">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Round</span>
               <span className="text-white font-bold">{room.round}/{room.totalRounds}</span>
@@ -390,7 +415,7 @@ export default function GamePage() {
           </div>
 
           {/* Player leaderboard */}
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <PlayerLeaderboard
               players={room.players}
               scores={room.scores}
@@ -400,12 +425,72 @@ export default function GamePage() {
               onKick={isHost ? handleKickPlayer : undefined}
             />
           </div>
+
+          {/* Drawer tools: Reference image + action buttons (only when drawing) */}
+          {isDrawer && (
+            <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
+              {/* Reference image placeholder */}
+              {showReference && (
+                <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: '9/16' }}>
+                  <div className="text-center text-gray-500 p-2">
+                    <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
+                    </svg>
+                    <span className="text-[10px]">Reference</span>
+                  </div>
+                </div>
+              )}
+              {/* Action buttons */}
+              <div className="flex gap-1">
+                <button
+                  onClick={handleReroll}
+                  title="Reroll word"
+                  className="flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300 transition-colors text-[10px] font-medium"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reroll
+                </button>
+                <button
+                  onClick={handleSkipTurn}
+                  title="Skip turn"
+                  className="flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg bg-gray-800 text-yellow-400 hover:bg-yellow-900/50 hover:text-yellow-300 transition-colors text-[10px] font-medium"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                  Skip
+                </button>
+                <button
+                  onClick={() => setShowReference(!showReference)}
+                  title={showReference ? 'Hide reference' : 'Show reference'}
+                  className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
+                    showReference
+                      ? 'bg-purple-600/50 text-purple-300 hover:bg-purple-700/50'
+                      : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                  }`}
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    {showReference ? (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    ) : (
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    )}
+                  </svg>
+                  {showReference ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Center: Canvas + Brush Controls */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+        {/* Center: Canvas + Brush Controls — hidden on mobile unless "canvas" tab */}
+        <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
+          mobilePanel === 'canvas' ? 'flex' : 'hidden'
+        } md:flex`}>
           {/* Canvas area */}
-          <div className="flex-1 flex items-center justify-center p-3 min-h-0">
+          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 min-h-0">
             <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }}>
               {roomId && (
                 <Canvas
@@ -421,22 +506,23 @@ export default function GamePage() {
 
           {/* Brush controls bar */}
           {isDrawer && (
-            <div className="shrink-0 px-3 pb-2">
+            <div className="shrink-0 px-2 sm:px-3 pb-2">
               <BrushControls
                 onColorChange={(color) => canvasRef.current?.setColor(color)}
                 onSizeChange={(size) => canvasRef.current?.setSize(size)}
                 onToolChange={(tool) => canvasRef.current?.setTool(tool)}
                 onClear={handleClearCanvas}
-                onReroll={handleReroll}
-                onSkip={handleSkipTurn}
+                onUndo={handleUndo}
                 isDrawer={isDrawer}
               />
             </div>
           )}
         </div>
 
-        {/* Right sidebar: Chat */}
-        <div className="w-72 shrink-0 border-l border-gray-800 bg-gray-900/50">
+        {/* Right sidebar: Chat — hidden on mobile unless "chat" tab */}
+        <div className={`w-full md:w-72 shrink-0 md:border-l border-gray-800 bg-gray-900/50 ${
+          mobilePanel === 'chat' ? 'flex' : 'hidden'
+        } md:flex`}>
           {roomId && (
             <Chat
               isDrawer={isDrawer}
