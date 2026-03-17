@@ -20,7 +20,7 @@ export default function RoomPage() {
 
   useEffect(() => {
     if (!username) {
-      router.push('/')
+      router.push(`/?roomId=${roomId}`)
       return
     }
 
@@ -43,6 +43,26 @@ export default function RoomPage() {
 
     sock.on('player-left', (updatedRoom: Room) => {
       setRoom(updatedRoom)
+    })
+
+    sock.on('host-changed', ({ newHostId }: { newHostId: string }) => {
+      setRoom((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          host: newHostId,
+          players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
+        }
+      })
+    })
+
+    sock.on('settings-updated', (updatedRoom: Room) => {
+      setRoom(updatedRoom)
+    })
+
+    sock.on('kicked', () => {
+      alert('You have been kicked from the room.')
+      router.push('/')
     })
 
     sock.on('game-started', (updatedRoom: Room) => {
@@ -69,9 +89,9 @@ export default function RoomPage() {
               const currentPlayer = response.room.players.find((p) => p.id === sock.id)
               if (currentPlayer) gameStore.setState({ currentPlayer })
 
-              // If the game is already in progress, redirect to game page
-              if (response.room.state === 'playing') {
-                console.log('[Room] Game already in progress, redirecting to /game')
+              // If the game is already in progress or ended, redirect to game page
+              if (response.room.state === 'playing' || response.room.state === 'results') {
+                console.log('[Room] Game in progress or ended, redirecting to /game')
                 router.push('/game')
                 return
               }
@@ -105,6 +125,9 @@ export default function RoomPage() {
       sock.off('player-joined')
       sock.off('player-ready')
       sock.off('player-left')
+      sock.off('host-changed')
+      sock.off('settings-updated')
+      sock.off('kicked')
       sock.off('game-started')
     }
   }, [username, roomId, router])
@@ -120,6 +143,21 @@ export default function RoomPage() {
     navigator.clipboard.writeText(roomId)
     setRoomIdCopied(true)
     setTimeout(() => setRoomIdCopied(false), 2000)
+  }
+
+  const handleStartGame = () => {
+    if (!socket) return
+    socket.emit('start-game', { roomId }, (response: { success: boolean; error?: string }) => {
+      if (!response.success) {
+        alert(response.error || 'Failed to start game')
+      }
+    })
+  }
+
+  const handleUpdateSettings = (settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }) => {
+    if (socket) {
+      socket.emit('update-settings', { roomId, settings }, () => {})
+    }
   }
 
   if (loading) {
@@ -142,72 +180,152 @@ export default function RoomPage() {
   const allReady = room.players.every((p) => p.ready)
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-8">
+    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-white">Room: {room.id}</h1>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-white">Lobby</h1>
+            <p className="text-gray-400 text-sm mt-1">Room: <span className="text-purple-400 font-mono">{room.id}</span></p>
+          </div>
           <button
             onClick={handleCopyRoomId}
-            className={`px-4 py-2 rounded font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
               roomIdCopied ? 'bg-green-600 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'
             }`}
           >
-            {roomIdCopied ? '✓ Copied!' : 'Copy Room ID'}
+            {roomIdCopied ? '✓ Copied!' : '📋 Copy Room ID'}
           </button>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Left: Config */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-purple-500">
-            <h2 className="text-2xl font-bold text-white mb-4">Game Settings</h2>
-            <div className="space-y-3 text-gray-300">
-              <p>
-                <span className="font-semibold">Theme:</span>{' '}
-                {room.theme === 'lol'
-                  ? 'League of Legends'
-                  : room.theme === 'elden-ring'
-                  ? 'Elden Ring'
-                  : 'Dead by Daylight'}
-              </p>
-              <p><span className="font-semibold">Rounds:</span> {room.totalRounds}</p>
-              <p><span className="font-semibold">Draw Time:</span> {room.drawTime}s</p>
-              <p><span className="font-semibold">Max Players:</span> {room.maxPlayers}</p>
-            </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Left: Game Settings */}
+          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50">
+            <h2 className="text-xl font-bold text-white mb-4">⚙️ Game Settings</h2>
+            {isHost ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Theme</label>
+                  <select
+                    value={room.theme}
+                    onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="lol">League of Legends</option>
+                    <option value="elden-ring">Elden Ring</option>
+                    <option value="dbd">Dead by Daylight</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Rounds</label>
+                  <select
+                    value={room.totalRounds}
+                    onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                  >
+                    {[3, 5, 8, 10].map((r) => (
+                      <option key={r} value={r}>{r} rounds</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Draw Time</label>
+                  <select
+                    value={room.drawTime}
+                    onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                  >
+                    {[60, 90, 120].map((t) => (
+                      <option key={t} value={t}>{t} seconds</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Max Players</label>
+                  <select
+                    value={room.maxPlayers}
+                    onChange={(e) => handleUpdateSettings({ maxPlayers: Number(e.target.value) })}
+                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-purple-500"
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
+                      <option key={n} value={n}>{n} players</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 text-gray-300">
+                <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                  <span className="text-gray-400">Theme</span>
+                  <span className="text-white font-medium">
+                    {room.theme === 'lol' ? 'League of Legends' : room.theme === 'elden-ring' ? 'Elden Ring' : 'Dead by Daylight'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                  <span className="text-gray-400">Rounds</span>
+                  <span className="text-white font-medium">{room.totalRounds}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                  <span className="text-gray-400">Draw Time</span>
+                  <span className="text-white font-medium">{room.drawTime}s</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-400">Max Players</span>
+                  <span className="text-white font-medium">{room.maxPlayers}</span>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right: Players */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-purple-500">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Players ({room.players.length}/{room.maxPlayers})
+          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50">
+            <h2 className="text-xl font-bold text-white mb-4">
+              👥 Players ({room.players.length}/{room.maxPlayers})
             </h2>
 
             <div className="space-y-2 mb-6">
               {room.players.map((player) => (
-                <div key={player.id} className="bg-gray-800 p-3 rounded flex items-center justify-between">
-                  <div>
-                    <span className="text-white font-semibold">{player.username}</span>
-                    {player.isHost && <span className="text-yellow-400 ml-2 text-xs">[HOST]</span>}
-                    {player.id === socket?.id && <span className="text-blue-400 ml-2 text-xs">(you)</span>}
+                <div key={player.id} className="bg-gray-800 p-3 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${player.ready ? 'bg-green-400' : 'bg-gray-600'}`} />
+                    <span className="text-white font-semibold text-sm">{player.username}</span>
+                    {player.isHost && <span className="text-yellow-400 text-xs font-bold">👑</span>}
+                    {player.id === socket?.id && <span className="text-blue-400 text-xs">(you)</span>}
                   </div>
-                  <span className={player.ready ? 'text-green-400 font-bold' : 'text-gray-500'}>
+                  <span className={`text-xs font-bold ${player.ready ? 'text-green-400' : 'text-gray-500'}`}>
                     {player.ready ? '✓ Ready' : 'Waiting...'}
                   </span>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={handleReady}
-              className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold"
-            >
-              Ready
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleReady}
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+              >
+                Toggle Ready
+              </button>
 
-            {isHost && allReady && (
-              <p className="text-gray-400 text-sm mt-3 text-center">
-                Waiting for the host to start the game...
-              </p>
-            )}
+              {isHost && (
+                <button
+                  onClick={handleStartGame}
+                  disabled={!allReady || room.players.length < 2}
+                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg font-bold transition-colors"
+                >
+                  Start Game
+                </button>
+              )}
+
+              {isHost && !allReady && room.players.length >= 2 && (
+                <p className="text-gray-400 text-xs text-center">All players must be ready to start</p>
+              )}
+              {isHost && room.players.length < 2 && (
+                <p className="text-gray-400 text-xs text-center">Need at least 2 players to start</p>
+              )}
+              {!isHost && (
+                <p className="text-gray-400 text-xs text-center">Waiting for the host to start the game...</p>
+              )}
+            </div>
           </div>
         </div>
       </div>

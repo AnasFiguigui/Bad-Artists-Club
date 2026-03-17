@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { initSocket, getSocket } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
@@ -19,6 +19,7 @@ export default function LobbyPage() {
   const [room, setRoom] = useState<Room | null>(null)
   const [config, setConfig] = useState<GameConfig>(DEFAULT_CONFIG)
   const [copied, setCopied] = useState(false)
+  const hasCreated = useRef(false)
 
   useEffect(() => {
     if (!username) {
@@ -69,13 +70,16 @@ export default function LobbyPage() {
       router.push('/game')
     })
 
-    // Create room
-    socket.emit('create-room', { config, username }, (response: { success: boolean; roomId: string }) => {
-      if (!response.success) {
-        alert('Failed to create room')
-        router.push('/')
-      }
-    })
+    // Create room (only once — prevents React Strict Mode double-emit)
+    if (!hasCreated.current) {
+      hasCreated.current = true
+      socket.emit('create-room', { config, username }, (response: { success: boolean; roomId: string }) => {
+        if (!response.success) {
+          alert('Failed to create room')
+          router.push('/')
+        }
+      })
+    }
 
     return () => {
       socket.off('room-created')

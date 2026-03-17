@@ -76,21 +76,49 @@ export class GameManager {
     return name.split('').map((c: string) => c === ' ' ? '  ' : '_ ').join('').trim()
   }
 
+  private validateUsername(name: unknown): string {
+    if (typeof name !== 'string') throw new Error('Invalid username')
+    const trimmed = name.trim()
+    if (trimmed.length < 1 || trimmed.length > 20) throw new Error('Username must be 1-20 characters')
+    return trimmed
+  }
+
   handleCreateRoom(socket: Socket, data: { config: GameConfig; username: string }): string {
-    const room = this.roomManager.createRoom(socket.id, data.username, data.config)
+    // Leave any existing room first
+    this.handleLeaveRoom(socket)
+
+    const username = this.validateUsername(data.username)
+
+    // Validate GameConfig
+    const validThemes = ['lol', 'elden-ring', 'dbd']
+    const validDrawTimes = [60, 90, 120]
+    if (!data.config || typeof data.config !== 'object') throw new Error('Invalid config')
+    if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
+    if (typeof data.config.rounds !== 'number' || data.config.rounds < 1 || data.config.rounds > 10) throw new Error('Invalid rounds')
+    if (!validDrawTimes.includes(data.config.drawTime)) throw new Error('Invalid draw time')
+    if (typeof data.config.maxPlayers !== 'number' || data.config.maxPlayers < 2 || data.config.maxPlayers > 12) {
+      throw new Error('Invalid max players')
+    }
+
+    const room = this.roomManager.createRoom(socket.id, username, data.config)
     socket.join(room.id)
-    console.log(`[Room] Created room ${room.id} by ${data.username} (${socket.id})`)
+    console.log(`[Room] Created room ${room.id} by ${username} (${socket.id})`)
     this.io.to(room.id).emit('room-created', room)
     return room.id
   }
 
   // Returns the room so the callback can include it
   handleJoinRoom(socket: Socket, roomId: string, username: string): Room {
+    const validatedUsername = this.validateUsername(username)
+
+    // Leave any existing room first
+    this.handleLeaveRoom(socket)
+
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
 
-    console.log(`[Room] Player ${username} (${socket.id}) joining room ${roomId}`)
-    const updatedRoom = this.roomManager.addPlayer(roomId, socket.id, username)
+    console.log(`[Room] Player ${validatedUsername} (${socket.id}) joining room ${roomId}`)
+    const updatedRoom = this.roomManager.addPlayer(roomId, socket.id, validatedUsername)
     socket.join(roomId)
     console.log(`[Room] Room ${roomId} now has ${updatedRoom.players.length} players, state: ${updatedRoom.state}`)
 
@@ -261,7 +289,24 @@ export class GameManager {
   }
 
   handleDraw(socket: Socket, stroke: DrawStroke): void {
+    // Validate DrawStroke input
+    if (!stroke || typeof stroke !== 'object') return
+    if (typeof stroke.roomId !== 'string') return
+    if (!Array.isArray(stroke.points) || stroke.points.length > 5000) return
+    if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return
+    if (typeof stroke.color !== 'string' || stroke.color.length > 20) return
+    if (!['brush', 'eraser', 'fill'].includes(stroke.tool)) return
+    for (const p of stroke.points) {
+      if (typeof p.x !== 'number' || typeof p.y !== 'number') return
+      if (p.x < 0 || p.x > 1280 || p.y < 0 || p.y > 720) return
+    }
+
     const room = this.roomManager.getRoom(stroke.roomId)
+    // In 'results' state, allow everyone to draw (free draw mode)
+    if (room?.state === 'results') {
+      socket.to(stroke.roomId).emit('draw', stroke)
+      return
+    }
     if (!room?.drawer || room.drawer !== socket.id) return
 
     // BUG FIX: Only broadcast to OTHER players (drawer already sees their own strokes)
@@ -269,11 +314,28 @@ export class GameManager {
   }
 
   handleChatMessage(socket: Socket, roomId: string, message: string): { success: boolean; isCorrect?: boolean } {
+    // Validate message
+    if (typeof message !== 'string' || message.length === 0 || message.length > 200) {
+      return { success: false }
+    }
+
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
 
     const player = room.players.find((p: { id: string }) => p.id === socket.id)
     if (!player) throw new Error('Player not in room')
+
+    // In 'results' state, allow free chat (no guessing)
+    if (room.state === 'results') {
+      const chatMsg = {
+        userId: socket.id,
+        username: player.username,
+        message,
+        timestamp: Date.now(),
+      }
+      this.io.to(roomId).emit('chat-message', chatMsg)
+      return { success: true, isCorrect: false }
+    }
 
     // Drawer cannot guess
     if (player.isDrawer) {
@@ -328,7 +390,20 @@ export class GameManager {
       this.roomManager.syncPlayerScores(roomId)
 
       const updatedRoom = this.roomManager.getRoom(roomId)!
-      this.io.to(roomId).emit('guess-correct', { ...updatedRoom, answer: room.answer })
+      // Send answer only to players who already guessed + drawer
+      for (const id of room.correctGuessers) {
+        this.io.to(id).emit('guess-correct', { ...updatedRoom, answer: room.answer })
+      }
+      if (room.drawer) {
+        this.io.to(room.drawer).emit('guess-correct', { ...updatedRoom, answer: room.answer })
+      }
+      // Send without answer to remaining players
+      const revealedIds = new Set([...room.correctGuessers, ...(room.drawer ? [room.drawer] : [])])
+      for (const p of room.players) {
+        if (!revealedIds.has(p.id)) {
+          this.io.to(p.id).emit('guess-correct', { ...updatedRoom, answer: undefined })
+        }
+      }
 
       // Check if all non-drawer players have guessed
       const nonDrawerPlayers = room.players.filter((p: { id: string }) => p.id !== room.drawer)
@@ -465,6 +540,32 @@ export class GameManager {
     this.endTurn(roomId)
   }
 
+  handleUpdateSettings(socket: Socket, roomId: string, settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.host !== socket.id) throw new Error('Only the host can update settings')
+
+    const validThemes = ['lol', 'elden-ring', 'dbd']
+    const validRounds = [3, 5, 8, 10]
+    const validDrawTimes = [60, 90, 120]
+
+    if (settings.theme && validThemes.includes(settings.theme)) {
+      room.theme = settings.theme as Room['theme']
+    }
+    if (settings.rounds && validRounds.includes(settings.rounds)) {
+      room.totalRounds = settings.rounds
+    }
+    if (settings.drawTime && validDrawTimes.includes(settings.drawTime)) {
+      room.drawTime = settings.drawTime
+      room.timer = settings.drawTime
+    }
+    if (settings.maxPlayers && settings.maxPlayers >= 2 && settings.maxPlayers <= 12) {
+      room.maxPlayers = settings.maxPlayers
+    }
+
+    this.io.to(roomId).emit('settings-updated', room)
+  }
+
   handleKickPlayer(socket: Socket, roomId: string, targetId: string): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
@@ -507,18 +608,18 @@ export class GameManager {
   handleClearCanvas(socket: Socket, roomId: string): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
-    if (room.drawer !== socket.id) throw new Error('Only the drawer can clear')
+    if (room.state !== 'results' && room.drawer !== socket.id) throw new Error('Only the drawer can clear')
 
-    // Broadcast clear to ALL players in the room (including drawer)
+    // Broadcast clear to ALL players in the room (including sender)
     this.io.to(roomId).emit('canvas-cleared')
   }
 
   handleUndo(socket: Socket, roomId: string): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
-    if (room.drawer !== socket.id) throw new Error('Only the drawer can undo')
+    if (room.state !== 'results' && room.drawer !== socket.id) throw new Error('Only the drawer can undo')
 
-    // Broadcast undo to all other players (drawer already undid locally)
+    // Broadcast undo to all other players (sender already undid locally)
     socket.to(roomId).emit('undo')
   }
 
@@ -540,6 +641,10 @@ export class GameManager {
       updatedRoom.host = updatedRoom.players[0].id
       updatedRoom.players[0].isHost = true
       console.log(`[Room] Host transferred to ${updatedRoom.players[0].username}`)
+      this.io.to(room.id).emit('host-changed', {
+        newHostId: updatedRoom.host,
+        newHostUsername: updatedRoom.players[0].username,
+      })
     }
 
     // If the drawer left during a game, end the turn early

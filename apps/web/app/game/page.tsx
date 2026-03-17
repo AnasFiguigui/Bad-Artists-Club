@@ -23,11 +23,11 @@ export default function GamePage() {
   const [notification, setNotification] = useState<string | null>(null)
   const [roundAnswer, setRoundAnswer] = useState<string | null>(null)
   const [gameEnded, setGameEnded] = useState(false)
-  const [finalRoom, setFinalRoom] = useState<Room | null>(null)
   const [cooldown, setCooldown] = useState(0)
   const [muted, setMuted] = useState(false)
   const [showReference, setShowReference] = useState(true)
   const [mobilePanel, setMobilePanel] = useState<'canvas' | 'chat' | 'players'>('canvas')
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
 
@@ -96,10 +96,13 @@ export default function GamePage() {
     })
 
     sock.on('game-ended', (endedRoom: Room) => {
-      setFinalRoom(endedRoom)
       setGameEnded(true)
       setRoom(endedRoom)
+      setRoundAnswer(null)
+      setTimeRemaining(0)
       gameStore.setState({ room: endedRoom })
+      // Clear canvas for free draw mode
+      canvasRef.current?.clear()
     })
 
     sock.on('turn-cooldown', ({ seconds }: { seconds: number }) => {
@@ -115,7 +118,6 @@ export default function GamePage() {
     sock.on('game-restarted', (updatedRoom: Room) => {
       setRoom(updatedRoom)
       setGameEnded(false)
-      setFinalRoom(null)
       setMessages([])
       setRoundAnswer(null)
       setCooldown(0)
@@ -140,6 +142,23 @@ export default function GamePage() {
       router.push('/')
     })
 
+    sock.on('host-changed', ({ newHostId, newHostUsername }: { newHostId: string; newHostUsername: string }) => {
+      setRoom((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          host: newHostId,
+          players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
+        }
+      })
+      setNotification(`${newHostUsername} is now the host`)
+      setTimeout(() => setNotification(null), 3000)
+    })
+
+    sock.on('settings-updated', (updatedRoom: Room) => {
+      setRoom(updatedRoom)
+    })
+
     // --- Request current game state (handles race condition) ---
     // The server may have emitted round-start before this page mounted.
     // request-game-state lets us recover the current round data.
@@ -152,6 +171,9 @@ export default function GamePage() {
             setRoom(response.room)
             gameStore.setState({ room: response.room })
             setIsDrawer(response.room.drawer === sock.id)
+            if (response.room.state === 'results') {
+              setGameEnded(true)
+            }
             roomLoaded = true
             clearTimeout(roundTimeout)
           }
@@ -187,6 +209,8 @@ export default function GamePage() {
       sock.off('undo')
       sock.off('reroll')
       sock.off('kicked')
+      sock.off('host-changed')
+      sock.off('settings-updated')
     }
   }, [username, roomId, router])
 
@@ -266,6 +290,12 @@ export default function GamePage() {
     }
   }
 
+  const handleUpdateSettings = (settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }) => {
+    if (socket && roomId) {
+      socket.emit('update-settings', { roomId, settings }, () => {})
+    }
+  }
+
   if (!room) {
     return (
       <div className="h-screen bg-gray-950 flex items-center justify-center">
@@ -276,60 +306,7 @@ export default function GamePage() {
 
   const isHost = room.host === socket?.id
   const playerCount = room.players.length
-
-  // Game ended overlay
-  if (gameEnded && finalRoom) {
-    const sortedPlayers = [...finalRoom.players].sort((a, b) => b.score - a.score)
-    return (
-      <div className="h-screen bg-gray-950 flex items-center justify-center">
-        <div className="max-w-lg w-full mx-4">
-          <h1 className="text-4xl font-bold text-white text-center mb-6">Game Over!</h1>
-          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50 mb-6">
-            <h2 className="text-xl font-bold text-white mb-4 text-center">Final Scores</h2>
-            <div className="space-y-2">
-              {sortedPlayers.map((player, idx) => {
-                const medals: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
-                const medal = medals[idx] || `#${idx + 1}`
-                return (
-                  <div
-                    key={player.id}
-                    className={`flex justify-between items-center p-3 rounded-lg ${
-                      idx === 0 ? 'bg-yellow-900/50 border border-yellow-500/50' : 'bg-gray-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl w-8">{medal}</span>
-                      <span className="text-white font-semibold">{player.username}</span>
-                    </div>
-                    <span className="text-purple-400 font-bold">{player.score} pts</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div className="flex gap-3 justify-center">
-            {isHost && (
-              <button
-                onClick={handleRestartGame}
-                className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
-              >
-                Play Again
-              </button>
-            )}
-            <button
-              onClick={handleLeaveGame}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors"
-            >
-              Leave
-            </button>
-          </div>
-          {!isHost && (
-            <p className="text-gray-400 text-center mt-3 text-sm">Waiting for host to start...</p>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const canDraw = gameEnded || isDrawer
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
@@ -348,6 +325,9 @@ export default function GamePage() {
         playerCount={playerCount}
         muted={muted}
         onToggleMute={() => setMuted(!muted)}
+        isHost={isHost}
+        gameEnded={gameEnded}
+        onEditSettings={() => setShowSettingsModal(true)}
       />
 
       {/* Floating toast notifications */}
@@ -380,12 +360,13 @@ export default function GamePage() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col md:flex-row min-h-0">
         {/* Left sidebar: Players + Round info + Drawer tools — hidden on mobile unless "players" tab */}
-        <div className={`w-full md:w-56 shrink-0 flex flex-col md:border-r border-gray-800 bg-gray-900/50 ${
+        <div className={`md:w-56 shrink-0 flex flex-col md:border-r border-gray-800 bg-gray-900/50 ${
           mobilePanel === 'players' ? 'flex' : 'hidden'
         } md:flex`}>
           {/* Round info */}
+          {!gameEnded && (
           <div className="px-3 py-2 border-b border-gray-700/50 shrink-0">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Round</span>
@@ -413,6 +394,7 @@ export default function GamePage() {
               </span>
             </p>
           </div>
+          )}
 
           {/* Player leaderboard */}
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -426,8 +408,8 @@ export default function GamePage() {
             />
           </div>
 
-          {/* Drawer tools: Reference image + action buttons (only when drawing) */}
-          {isDrawer && (
+          {/* Drawer tools: Reference image + action buttons (only when drawing, not in free draw) */}
+          {isDrawer && !gameEnded && (
             <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
               {/* Reference image placeholder */}
               {showReference && (
@@ -483,19 +465,34 @@ export default function GamePage() {
               </div>
             </div>
           )}
+
+          {/* Start Game button for host when game ended */}
+          {gameEnded && isHost && (
+            <div className="shrink-0 border-t border-gray-700/50 p-2">
+              <button
+                onClick={handleRestartGame}
+                className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors text-sm"
+              >
+                Start Game
+              </button>
+            </div>
+          )}
+          {gameEnded && !isHost && (
+            <div className="shrink-0 border-t border-gray-700/50 p-2">
+              <p className="text-gray-400 text-center text-xs">Waiting for host to start...</p>
+            </div>
+          )}
         </div>
 
-        {/* Center: Canvas + Brush Controls — hidden on mobile unless "canvas" tab */}
-        <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${
-          mobilePanel === 'canvas' ? 'flex' : 'hidden'
-        } md:flex`}>
+        {/* Center: Canvas + Brush Controls — always visible */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Canvas area */}
           <div className="flex-1 flex items-center justify-center p-2 sm:p-3 min-h-0">
             <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }}>
               {roomId && (
                 <Canvas
                   ref={canvasRef}
-                  isDrawer={isDrawer}
+                  isDrawer={canDraw}
                   onDraw={handleDraw}
                   roomId={roomId}
                   playerId={socket?.id || ''}
@@ -505,7 +502,7 @@ export default function GamePage() {
           </div>
 
           {/* Brush controls bar */}
-          {isDrawer && (
+          {canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2">
               <BrushControls
                 onColorChange={(color) => canvasRef.current?.setColor(color)}
@@ -513,19 +510,19 @@ export default function GamePage() {
                 onToolChange={(tool) => canvasRef.current?.setTool(tool)}
                 onClear={handleClearCanvas}
                 onUndo={handleUndo}
-                isDrawer={isDrawer}
+                isDrawer={canDraw}
               />
             </div>
           )}
         </div>
 
         {/* Right sidebar: Chat — hidden on mobile unless "chat" tab */}
-        <div className={`w-full md:w-72 shrink-0 md:border-l border-gray-800 bg-gray-900/50 ${
+        <div className={`md:w-72 shrink-0 md:border-l border-gray-800 bg-gray-900/50 ${
           mobilePanel === 'chat' ? 'flex' : 'hidden'
         } md:flex`}>
           {roomId && (
             <Chat
-              isDrawer={isDrawer}
+              isDrawer={gameEnded ? false : isDrawer}
               messages={messages}
               onSendMessage={handleSendMessage}
               roomId={roomId}
@@ -533,6 +530,72 @@ export default function GamePage() {
           )}
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
+          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Game Settings</h2>
+              <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Theme</label>
+                <select
+                  value={room.theme}
+                  onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                >
+                  <option value="lol">League of Legends</option>
+                  <option value="elden-ring">Elden Ring</option>
+                  <option value="dbd">Dead by Daylight</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Rounds</label>
+                <select
+                  value={room.totalRounds}
+                  onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                >
+                  {[3, 5, 8, 10].map((r) => (
+                    <option key={r} value={r}>{r} rounds</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Draw Time</label>
+                <select
+                  value={room.drawTime}
+                  onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                >
+                  {[60, 90, 120].map((t) => (
+                    <option key={t} value={t}>{t} seconds</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 block mb-1">Max Players</label>
+                <select
+                  value={room.maxPlayers}
+                  onChange={(e) => handleUpdateSettings({ maxPlayers: Number(e.target.value) })}
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500"
+                >
+                  {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
+                    <option key={n} value={n}>{n} players</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
