@@ -352,7 +352,7 @@ export default function GamePage() {
 
       {/* Floating toast notifications */}
       {notification && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-blue-600/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-pulse">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-600/80 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-pulse">
           {notification}
         </div>
       )}

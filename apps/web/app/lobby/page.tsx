@@ -177,20 +177,20 @@ export default function LobbyPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-gray-200 mb-2 text-sm font-medium">Theme</label>
+                <label className="block text-gray-100 mb-2 text-sm font-medium">Theme</label>
                 <select
                   value={config.theme}
                   onChange={(e) => handleUpdateConfig({ theme: e.target.value as any })}
                   className="w-full px-3 py-2 bg-white/10 text-white rounded-lg border border-white/20 backdrop-blur-sm focus:outline-none focus:border-white/40 transition-colors appearance-none cursor-pointer"
                 >
-                  <option value="lol" className="bg-gray-900">League of Legends</option>
-                  <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
-                  <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
+                  <option value="lol" className="bg-gray-400/90">League of Legends</option>
+                  <option value="elden-ring" className="bg-gray-400/90">Elden Ring</option>
+                  <option value="dbd" className="bg-gray-400/90">Dead by Daylight</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-gray-200 mb-2 text-sm font-medium">Rounds: {config.rounds}</label>
+                <label className="block text-gray-100 mb-2 text-sm font-medium">Rounds: {config.rounds}</label>
                 <input
                   type="range"
                   min="3"
@@ -203,7 +203,7 @@ export default function LobbyPage() {
               </div>
 
               <div>
-                <label className="block text-gray-200 mb-2 text-sm font-medium">Draw Time: {config.drawTime}s</label>
+                <label className="block text-gray-100 mb-2 text-sm font-medium">Draw Time: {config.drawTime}s</label>
                 <input
                   type="range"
                   min="60"
@@ -217,13 +217,13 @@ export default function LobbyPage() {
             </div>
 
             <div className="space-y-2 mt-6">
-              <div className="p-3 bg-blue-500/10 border border-blue-400/30 rounded-lg text-blue-100 text-sm mb-3 backdrop-blur-sm">
+              <div className="p-3 bg-blue-500/50 border border-blue-400/60 rounded-lg text-white text-sm mb-3 backdrop-blur-sm">
                 ℹ️ Share the invite link or room ID with friends. Players can join anytime, even after the game starts!
               </div>
 
               <button
                 onClick={handleCopyLink}
-                className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-100 border border-blue-400/30 px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
+                className="w-full bg-blue-500/80 hover:bg-blue-500/60 text-white border border-blue-400/80 px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
               >
                 {copied ? '✓ Copied Invite Link' : 'Copy Invite Link'}
               </button>
@@ -234,7 +234,7 @@ export default function LobbyPage() {
                   setCopied(true)
                   setTimeout(() => setCopied(false), 2000)
                 }}
-                className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-100 border border-cyan-400/30 px-4 py-2 rounded-lg text-sm backdrop-blur-sm transition-colors"
+                className="w-full bg-cyan-500/80 hover:bg-cyan-500/60 text-white border border-cyan-400/70 px-4 py-2 rounded-lg text-sm backdrop-blur-sm transition-colors"
               >
                 {copied ? '✓ Copied Room ID' : `Copy Room ID: ${room.id}`}
               </button>
@@ -252,7 +252,7 @@ export default function LobbyPage() {
                     <span className="text-white font-semibold">{player.username}</span>
                     {player.isHost && <span className="text-yellow-400 ml-2 text-xs">[HOST]</span>}
                   </div>
-                  <span className={player.ready ? 'text-emerald-400 font-bold' : 'text-gray-500'}>
+                  <span className={player.ready ? 'text-emerald-400 font-bold' : 'text-gray-100'}>
                     {player.ready ? '✓ Ready' : 'Waiting...'}
                   </span>
                 </div>
@@ -262,7 +262,7 @@ export default function LobbyPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleReady}
-                className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
+                className="flex-1 bg-emerald-500/80 hover:bg-emerald-500/60 border border-emerald-400/70 text-white px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
               >
                 Ready
               </button>
@@ -270,7 +270,7 @@ export default function LobbyPage() {
               {isHost && room.players.length < 2 && (
                 <button
                   onClick={handleEnterFreeDraw}
-                  className="flex-1 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-orange-100 px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
+                  className="flex-1 bg-amber-500/75 hover:bg-amber-500/60 border border-amber-400/60 text-white px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
                 >
                   Free Draw
                 </button>
