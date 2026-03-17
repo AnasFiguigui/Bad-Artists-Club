@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: GameConfig = {
   theme: 'lol',
   rounds: 5,
   drawTime: 90,
-  maxPlayers: 8,
+  maxPlayers: 20,
 }
 
 export default function LobbyPage() {
@@ -116,6 +116,15 @@ export default function LobbyPage() {
     }
   }
 
+  const handleUpdateConfig = (partial: Partial<GameConfig>) => {
+    setConfig((prev) => ({ ...prev, ...partial }))
+    const socket = getSocket()
+    const roomId = gameStore.getState().roomId
+    if (roomId) {
+      socket.emit('update-settings', { roomId, settings: partial }, () => {})
+    }
+  }
+
   const handleCopyLink = () => {
     const link = `${window.location.origin}/?roomId=${room?.id}`
     navigator.clipboard.writeText(link)
@@ -125,7 +134,7 @@ export default function LobbyPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center">
         <div className="text-white text-2xl">Loading lobby...</div>
       </div>
     )
@@ -135,13 +144,13 @@ export default function LobbyPage() {
   const allReady = room.players.every((p) => p.ready)
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-8">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-8">Room: {room.id}</h1>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Left: Config */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-purple-500">
+          <div className="bg-gray-900 rounded-lg p-6 border border-indigo-500">
             <h2 className="text-2xl font-bold text-white mb-4">Game Settings</h2>
 
             <div className="space-y-4">
@@ -149,7 +158,7 @@ export default function LobbyPage() {
                 <label className="block text-gray-300 mb-2">Theme</label>
                 <select
                   value={config.theme}
-                  onChange={(e) => setConfig({ ...config, theme: e.target.value as any })}
+                  onChange={(e) => handleUpdateConfig({ theme: e.target.value as any })}
                   className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
                 >
                   <option value="lol">League of Legends</option>
@@ -166,7 +175,7 @@ export default function LobbyPage() {
                   max="10"
                   step="1"
                   value={config.rounds}
-                  onChange={(e) => setConfig({ ...config, rounds: parseInt(e.target.value) as any })}
+                  onChange={(e) => handleUpdateConfig({ rounds: parseInt(e.target.value) as any })}
                   className="w-full"
                 />
               </div>
@@ -179,20 +188,7 @@ export default function LobbyPage() {
                   max="120"
                   step="30"
                   value={config.drawTime}
-                  onChange={(e) => setConfig({ ...config, drawTime: parseInt(e.target.value) as any })}
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-300 mb-2">Max Players: {config.maxPlayers}</label>
-                <input
-                  type="range"
-                  min="2"
-                  max="12"
-                  step="1"
-                  value={config.maxPlayers}
-                  onChange={(e) => setConfig({ ...config, maxPlayers: parseInt(e.target.value) })}
+                  onChange={(e) => handleUpdateConfig({ drawTime: parseInt(e.target.value) as any })}
                   className="w-full"
                 />
               </div>
@@ -224,8 +220,8 @@ export default function LobbyPage() {
           </div>
 
           {/* Right: Players */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-purple-500">
-            <h2 className="text-2xl font-bold text-white mb-4">Players ({room.players.length}/8)</h2>
+          <div className="bg-gray-900 rounded-lg p-6 border border-indigo-500">
+            <h2 className="text-2xl font-bold text-white mb-4">Players ({room.players.length})</h2>
 
             <div className="space-y-2 mb-6">
               {room.players.map((player) => (
@@ -234,7 +230,7 @@ export default function LobbyPage() {
                     <span className="text-white font-semibold">{player.username}</span>
                     {player.isHost && <span className="text-yellow-400 ml-2 text-xs">[HOST]</span>}
                   </div>
-                  <span className={player.ready ? 'text-green-400 font-bold' : 'text-gray-500'}>
+                  <span className={player.ready ? 'text-emerald-400 font-bold' : 'text-gray-500'}>
                     {player.ready ? '✓ Ready' : 'Waiting...'}
                   </span>
                 </div>
@@ -244,7 +240,7 @@ export default function LobbyPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleReady}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded font-semibold"
               >
                 Ready
               </button>
@@ -252,7 +248,7 @@ export default function LobbyPage() {
               {isHost && allReady && (
                 <button
                   onClick={handleStartGame}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-semibold"
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded font-semibold"
                 >
                   Start Game
                 </button>

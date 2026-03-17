@@ -320,7 +320,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         onTouchStart={startDrawingTouch}
         onTouchMove={drawTouch}
         onTouchEnd={stopDrawingTouch}
-        className={`border-2 border-purple-500/50 rounded-lg bg-white w-full touch-none ${
+        className={`border-2 border-indigo-500/50 rounded-lg bg-white w-full touch-none ${
           isDrawer ? 'cursor-crosshair' : 'pointer-events-none'
         }`}
         style={{ aspectRatio: '16 / 9' }}

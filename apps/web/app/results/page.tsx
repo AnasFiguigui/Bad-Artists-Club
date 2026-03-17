@@ -32,9 +32,9 @@ export default function ResultsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black flex items-center justify-center p-4">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-gray-900 rounded-lg shadow-2xl p-8 border border-purple-500">
+        <div className="bg-gray-900 rounded-lg shadow-2xl p-8 border border-indigo-500">
           <h1 className="text-4xl font-bold text-center text-white mb-2">Game Over!</h1>
           <p className="text-center text-gray-400 mb-8">Final Results</p>
 
@@ -47,7 +47,7 @@ export default function ResultsPage() {
                   </span>
                   <span className="text-white">{player.username}</span>
                 </div>
-                <span className="text-green-400 font-bold">{player.score}</span>
+                <span className="text-emerald-400 font-bold">{player.score}</span>
               </div>
             ))}
           </div>
@@ -55,7 +55,7 @@ export default function ResultsPage() {
           <div className="flex gap-3">
             <button
               onClick={handlePlayAgain}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded transition"
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded transition"
             >
               Play Again
             </button>

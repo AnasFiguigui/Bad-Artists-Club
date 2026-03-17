@@ -16,7 +16,7 @@ export function PlayerList({ players, currentPlayerId }: PlayerListProps) {
           <div
             key={player.id}
             className={`p-3 rounded text-sm ${
-              player.id === currentPlayerId ? 'bg-purple-900 border border-purple-500' : 'bg-gray-800'
+              player.id === currentPlayerId ? 'bg-indigo-900 border border-indigo-500' : 'bg-gray-800'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -25,7 +25,7 @@ export function PlayerList({ players, currentPlayerId }: PlayerListProps) {
                 {player.isHost && <span className="text-yellow-400 ml-2 text-xs">[HOST]</span>}
                 {player.isDrawer && <span className="text-orange-400 ml-2 text-xs">[DRAWING]</span>}
               </div>
-              <span className="text-green-400 font-bold">{player.score}</span>
+              <span className="text-emerald-400 font-bold">{player.score}</span>
             </div>
           </div>
         ))}

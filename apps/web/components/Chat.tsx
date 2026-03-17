@@ -51,8 +51,8 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
           let prefix = ''
 
           if (msg.isCorrect) {
-            bgColor = 'bg-green-900/50'
-            textColor = 'text-green-200'
+            bgColor = 'bg-emerald-900/50'
+            textColor = 'text-emerald-200'
             if (msg.guessPosition) {
               const medals: Record<number, string> = { 1: '🥇 ', 2: '🥈 ', 3: '🥉 ' }
               prefix = medals[msg.guessPosition] || `#${msg.guessPosition} `
@@ -90,11 +90,11 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type your guess..."
-              className="flex-1 px-2 py-1.5 bg-gray-800 text-white text-sm rounded border border-gray-700 focus:outline-none focus:border-purple-500"
+              className="flex-1 px-2 py-1.5 bg-gray-800 text-white text-sm rounded border border-gray-700 focus:outline-none focus:border-indigo-500"
             />
             <button
               onClick={handleSend}
-              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
             >
               <svg className="w-4 h-4 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

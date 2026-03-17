@@ -37,7 +37,7 @@ export function PlayerLeaderboard({
             <div
               key={player.id}
               className={`flex items-center gap-2 px-3 py-2 border-b border-gray-800/50 last:border-0 ${
-                isMe ? 'bg-purple-900/30' : ''
+                isMe ? 'bg-indigo-900/30' : ''
               } ${isDrawing ? 'bg-orange-900/20' : ''}`}
             >
               <span className="text-gray-500 text-xs font-bold w-5 text-right">
@@ -45,7 +45,7 @@ export function PlayerLeaderboard({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className={`text-sm font-medium truncate ${isMe ? 'text-purple-300' : 'text-white'}`}>
+                  <span className={`text-sm font-medium truncate ${isMe ? 'text-indigo-300' : 'text-white'}`}>
                     {medal}{player.username}
                   </span>
                   {player.isHost && (
@@ -56,7 +56,7 @@ export function PlayerLeaderboard({
                   )}
                 </div>
               </div>
-              <span className="text-green-400 font-bold text-sm tabular-nums">
+              <span className="text-emerald-400 font-bold text-sm tabular-nums">
                 {scores[player.id] || 0}
               </span>
               {isHost && !isMe && onKick && (

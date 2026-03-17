@@ -16,7 +16,7 @@ export function Timer({ timeRemaining, totalTime }: TimerProps) {
           <div
             className={`h-2 rounded-full transition-all ${
               percentage > 50
-                ? 'bg-green-500'
+                ? 'bg-emerald-500'
                 : percentage > 25
                 ? 'bg-yellow-500'
                 : 'bg-red-500'

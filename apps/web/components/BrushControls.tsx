@@ -61,7 +61,7 @@ export function BrushControls({
           title="Brush"
           className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
             activeTool === 'brush'
-              ? 'bg-purple-600 text-white'
+              ? 'bg-indigo-600 text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
           }`}
         >
@@ -139,7 +139,7 @@ export function BrushControls({
             title={`Size ${size}`}
             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors ${
               brushSize === size
-                ? 'bg-purple-600 ring-2 ring-purple-400'
+                ? 'bg-indigo-600 ring-2 ring-indigo-400'
                 : 'bg-gray-800 hover:bg-gray-700'
             }`}
           >

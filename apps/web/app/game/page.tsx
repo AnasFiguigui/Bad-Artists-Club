@@ -370,7 +370,7 @@ export default function GamePage() {
             onClick={() => setMobilePanel(tab)}
             className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
               mobilePanel === tab
-                ? 'text-purple-400 border-b-2 border-purple-400'
+                ? 'text-indigo-400 border-b-2 border-indigo-400'
                 : 'text-gray-500 hover:text-gray-300'
             }`}
           >
@@ -400,7 +400,7 @@ export default function GamePage() {
               <div
                 className={`h-1.5 rounded-full transition-all ${
                   timeRemaining > room.drawTime * 0.5
-                    ? 'bg-green-500'
+                    ? 'bg-emerald-500'
                     : timeRemaining > room.drawTime * 0.25
                     ? 'bg-yellow-500'
                     : 'bg-red-500'
@@ -469,7 +469,7 @@ export default function GamePage() {
                   title={showReference ? 'Hide reference' : 'Show reference'}
                   className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
                     showReference
-                      ? 'bg-purple-600/50 text-purple-300 hover:bg-purple-700/50'
+                      ? 'bg-indigo-600/50 text-indigo-300 hover:bg-indigo-700/50'
                       : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
                   }`}
                 >
@@ -491,7 +491,7 @@ export default function GamePage() {
             <div className="shrink-0 border-t border-gray-700/50 p-2">
               <button
                 onClick={handleRestartGame}
-                className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors text-sm"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors text-sm"
               >
                 Start Game
               </button>
@@ -554,7 +554,7 @@ export default function GamePage() {
       {/* Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
-          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-gray-900 rounded-xl p-6 border border-indigo-500/50 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">Game Settings</h2>
               <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
@@ -573,7 +573,7 @@ export default function GamePage() {
                   value={room.theme}
                   onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="lol">League of Legends</option>
                   <option value="elden-ring">Elden Ring</option>
@@ -586,7 +586,7 @@ export default function GamePage() {
                   value={room.totalRounds}
                   onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {[3, 5, 8, 10].map((r) => (
                     <option key={r} value={r}>{r} rounds</option>
@@ -599,23 +599,10 @@ export default function GamePage() {
                   value={room.drawTime}
                   onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {[60, 90, 120].map((t) => (
                     <option key={t} value={t}>{t} seconds</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 block mb-1">Max Players</label>
-                <select
-                  value={room.maxPlayers}
-                  onChange={(e) => handleUpdateSettings({ maxPlayers: Number(e.target.value) })}
-                  disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {[2, 3, 4, 5, 6, 7, 8, 10, 12].map((n) => (
-                    <option key={n} value={n}>{n} players</option>
                   ))}
                 </select>
               </div>

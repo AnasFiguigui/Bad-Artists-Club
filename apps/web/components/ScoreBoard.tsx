@@ -21,7 +21,7 @@ export function ScoreBoard({ room }: ScoreBoardProps) {
               <span className="text-gray-500 font-bold w-6">#{idx + 1}</span>
               <span className="text-white">{player.username}</span>
             </div>
-            <span className="text-green-400 font-bold">{room.scores[player.id] || 0}</span>
+            <span className="text-emerald-400 font-bold">{room.scores[player.id] || 0}</span>
           </div>
         ))}
       </div>

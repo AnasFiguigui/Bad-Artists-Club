@@ -51,14 +51,14 @@ export function GameNavbar({
   const totalTurns = totalRounds * playerCount
   const currentTurn = turnIndex + 1
   const timerPercent = totalTime > 0 ? (timeRemaining / totalTime) * 100 : 0
-  const timerColor = timerPercent > 50 ? 'text-green-400' : timerPercent > 25 ? 'text-yellow-400' : 'text-red-400'
+  const timerColor = timerPercent > 50 ? 'text-emerald-400' : timerPercent > 25 ? 'text-yellow-400' : 'text-red-400'
 
   return (
-    <nav className="flex items-center justify-between bg-gray-900/90 border-b border-purple-500/50 px-2 sm:px-4 h-12 sm:h-14 shrink-0">
+    <nav className="flex items-center justify-between bg-gray-900/90 border-b border-indigo-500/50 px-2 sm:px-4 h-12 sm:h-14 shrink-0">
       {/* Left: Logo + Round info */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         <div className="flex items-center gap-1 sm:gap-2">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white font-bold text-xs sm:text-sm">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs sm:text-sm">
             BA
           </div>
           <span className="text-white font-bold text-sm hidden sm:block">Bad Artists</span>
@@ -71,7 +71,7 @@ export function GameNavbar({
       {/* Center: Drawing prompt / Hint + Timer */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 justify-center">
         {gameEnded ? (
-          <span className="text-purple-400 font-bold text-sm sm:text-lg">🎨 Free Draw!</span>
+          <span className="text-indigo-400 font-bold text-sm sm:text-lg">🎨 Free Draw!</span>
         ) : roundAnswer ? (
           <div className="flex items-center gap-1 sm:gap-2">
             <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Answer:</span>
@@ -80,7 +80,7 @@ export function GameNavbar({
         ) : isDrawer && answer ? (
           <div className="flex items-center gap-1 sm:gap-2">
             <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Draw:</span>
-            <span className="text-green-400 font-bold text-sm sm:text-lg">{answer}</span>
+            <span className="text-emerald-400 font-bold text-sm sm:text-lg">{answer}</span>
           </div>
         ) : (
           <div className="text-gray-300 text-base sm:text-xl font-mono tracking-[0.2em] sm:tracking-[0.3em] truncate">
@@ -98,7 +98,7 @@ export function GameNavbar({
           onClick={handleCopyLink}
           title="Copy invite link"
           className={`p-2 rounded-lg transition-colors ${
-            copied ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
+            copied ? 'bg-emerald-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white'
           }`}
         >
           {copied ? (

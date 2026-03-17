@@ -45,16 +45,16 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black flex items-center justify-center p-4">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        <div className="bg-gray-900 rounded-lg shadow-2xl p-8 border border-purple-500">
+        <div className="bg-gray-900 rounded-lg shadow-2xl p-8 border border-indigo-500">
           <h1 className="text-4xl font-bold text-white mb-2 text-center">Bad Artists Club</h1>
           <p className="text-gray-400 text-center mb-8">Draw. Guess. Win.</p>
 
           {isJoining ? (
             // JOIN ROOM FLOW - Simple and clean
             <div className="space-y-6">
-              <p className="text-gray-300 text-center text-sm">Joining room: <span className="font-bold text-purple-400">{roomId}</span></p>
+              <p className="text-gray-300 text-center text-sm">Joining room: <span className="font-bold text-indigo-400">{roomId}</span></p>
               
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">Your Name</label>
@@ -64,7 +64,7 @@ function HomeContent() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your name"
                   onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
@@ -77,7 +77,7 @@ function HomeContent() {
               </button>
               
               <p className="text-gray-400 text-center text-xs">
-                <a href="/" className="text-purple-400 hover:text-purple-300">Create a new room instead</a>
+                <a href="/" className="text-indigo-400 hover:text-indigo-300">Create a new room instead</a>
               </p>
             </div>
           ) : (
@@ -91,14 +91,14 @@ function HomeContent() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your name"
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <button
                 onClick={handleCreateRoom}
                 disabled={loading}
-                className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold py-3 rounded transition"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 rounded transition"
               >
                 {loading ? 'Creating...' : 'Create Room'}
               </button>
@@ -113,7 +113,7 @@ function HomeContent() {
                     onChange={(e) => setJoinRoomId(e.target.value)}
                     placeholder="Enter Room ID"
                     onKeyDown={(e) => e.key === 'Enter' && handleJoinWithId()}
-                    className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                    className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
                   />
                   <button
                     onClick={handleJoinWithId}
@@ -135,7 +135,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black flex items-center justify-center p-4">
+      <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center p-4">
         <div className="text-white text-lg">Loading...</div>
       </main>
     }>

@@ -104,7 +104,7 @@ export class GameManager {
     if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
     if (typeof data.config.rounds !== 'number' || data.config.rounds < 1 || data.config.rounds > 10) throw new Error('Invalid rounds')
     if (!validDrawTimes.includes(data.config.drawTime)) throw new Error('Invalid draw time')
-    if (typeof data.config.maxPlayers !== 'number' || data.config.maxPlayers < 2 || data.config.maxPlayers > 12) {
+    if (typeof data.config.maxPlayers !== 'number' || data.config.maxPlayers < 2 || data.config.maxPlayers > 20) {
       throw new Error('Invalid max players')
     }
 
@@ -393,7 +393,7 @@ export class GameManager {
 
       const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : position === 3 ? '3rd' : `${position}th`
 
-      // System message visible to EVERYONE (green)
+      // System message visible to EVERYONE (emerald)
       const correctMsg = {
         userId: socket.id,
         username: player.username,
@@ -611,7 +611,7 @@ export class GameManager {
       room.drawTime = settings.drawTime
       room.timer = settings.drawTime
     }
-    if (settings.maxPlayers && settings.maxPlayers >= 2 && settings.maxPlayers <= 12) {
+    if (settings.maxPlayers && settings.maxPlayers >= 2 && settings.maxPlayers <= 20) {
       room.maxPlayers = settings.maxPlayers
     }
 
