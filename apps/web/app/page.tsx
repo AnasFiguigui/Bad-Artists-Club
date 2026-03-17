@@ -54,8 +54,10 @@ function HomeContent() {
         className="fixed inset-0 -z-10"
       />
       <div className="max-w-md w-full">
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
-          <h1 className="text-4xl font-bold text-white mb-2 text-center">Bad Artists Club</h1>
+        <div className="bg-white/5 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
+          <div className="w-144 h-144 mx-auto mb-4">
+            <img src="/images/logo-bac-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
+          </div>
           <p className="text-white/90 text-center mb-8">Draw. Guess. Win.</p>
 
           {isJoining ? (
