@@ -24,10 +24,7 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
     if (!input.trim()) return
 
     const now = Date.now()
-    if (now - lastGuessTime < 1000) {
-      alert('You can only guess once per second')
-      return
-    }
+    if (now - lastGuessTime < 1000) return
 
     onSendMessage(input)
     setLastGuessTime(now)
@@ -42,35 +39,40 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 bg-gray-900 p-4 rounded border border-gray-700 h-96">
-      <div className="flex-1 overflow-y-auto space-y-2">
+    <div className="flex flex-col h-full">
+      <div className="px-3 py-2 border-b border-gray-700/50">
+        <h3 className="text-sm font-bold text-white">Chat</h3>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 min-h-0">
         {messages.map((msg, idx) => {
           let bgColor = ''
           let textColor = 'text-gray-300'
           let prefix = ''
 
           if (msg.isCorrect) {
-            bgColor = 'bg-green-900'
+            bgColor = 'bg-green-900/50'
             textColor = 'text-green-200'
             if (msg.guessPosition) {
               const medals: Record<number, string> = { 1: '🥇 ', 2: '🥈 ', 3: '🥉 ' }
               prefix = medals[msg.guessPosition] || `#${msg.guessPosition} `
             }
           } else if (msg.isClose) {
-            bgColor = 'bg-yellow-900'
+            bgColor = 'bg-yellow-900/50'
             textColor = 'text-yellow-200'
           }
 
           return (
             <div
-              key={idx}
-              className={`text-sm ${bgColor} ${textColor} p-2 rounded`}
+              key={`${msg.timestamp}-${msg.userId}-${idx}`}
+              className={`text-xs ${bgColor} ${textColor} px-2 py-1.5 rounded`}
             >
               {msg.isSystem ? (
                 <span className="font-semibold">{prefix}{msg.message}</span>
               ) : (
                 <>
-                  <span className="font-semibold text-blue-400">{msg.username}:</span> {msg.message}
+                  <span className="font-semibold text-blue-400">{msg.username}: </span>
+                  {msg.message}
                 </>
               )}
             </div>
@@ -79,26 +81,32 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {!isDrawer && (
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Type your guess..."
-            className="flex-1 px-3 py-2 bg-gray-800 text-white rounded border border-gray-700 focus:outline-none focus:border-purple-500"
-          />
-          <button
-            onClick={handleSend}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded font-semibold"
-          >
-            Send
-          </button>
+      {!isDrawer ? (
+        <div className="p-2 border-t border-gray-700/50">
+          <div className="flex gap-1.5">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Type your guess..."
+              className="flex-1 px-2 py-1.5 bg-gray-800 text-white text-sm rounded border border-gray-700 focus:outline-none focus:border-purple-500"
+            />
+            <button
+              onClick={handleSend}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-2 border-t border-gray-700/50">
+          <p className="text-yellow-400 text-xs italic text-center">You are drawing — cannot chat</p>
         </div>
       )}
-
-      {isDrawer && <div className="text-yellow-400 text-sm italic">You are the drawer. Watch the guesses!</div>}
     </div>
   )
 }

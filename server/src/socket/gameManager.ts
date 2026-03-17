@@ -423,6 +423,96 @@ export class GameManager {
     }, 1500)
   }
 
+  handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string } {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.drawer !== socket.id) throw new Error('Only the drawer can reroll')
+
+    const character = this.selectRandomCharacter(room.theme)
+    const hint = this.generateHint(character.name)
+    this.roomManager.setAnswer(roomId, character.name, hint)
+
+    console.log(`[Game] Reroll in ${roomId}: new character "${character.name}"`)
+
+    // Send new hint to all guessers
+    this.io.to(roomId).except(socket.id).emit('reroll', { hint })
+    return { success: true, answer: character.name, hint }
+  }
+
+  handleSkipTurn(socket: Socket, roomId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.drawer !== socket.id) throw new Error('Only the drawer can skip')
+
+    console.log(`[Game] Drawer ${socket.id} skipping turn in ${roomId}`)
+
+    // Clear timer
+    const timer = this.timers.get(roomId)
+    if (timer) clearInterval(timer)
+    this.timers.delete(roomId)
+    this.roundStartTimes.delete(roomId)
+
+    // Announce skip
+    const player = room.players.find((p: { id: string }) => p.id === socket.id)
+    this.io.to(roomId).emit('chat-message', {
+      userId: 'system',
+      username: 'System',
+      message: `${player?.username || 'Drawer'} skipped their turn!`,
+      timestamp: Date.now(),
+      isSystem: true,
+    })
+
+    this.endTurn(roomId)
+  }
+
+  handleKickPlayer(socket: Socket, roomId: string, targetId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.host !== socket.id) throw new Error('Only the host can kick players')
+    if (targetId === socket.id) throw new Error('Cannot kick yourself')
+
+    const target = room.players.find((p: { id: string }) => p.id === targetId)
+    if (!target) throw new Error('Player not found')
+
+    console.log(`[Game] Host kicking ${target.username} from ${roomId}`)
+
+    // Notify the kicked player
+    this.io.to(targetId).emit('kicked')
+
+    // Remove from room
+    this.roomManager.removePlayer(roomId, targetId)
+
+    // If the kicked player was drawing, end the turn
+    if (room.drawer === targetId && room.state === 'playing') {
+      const timer = this.timers.get(roomId)
+      if (timer) clearInterval(timer)
+      this.timers.delete(roomId)
+      this.roundStartTimes.delete(roomId)
+      this.endTurn(roomId)
+    }
+
+    const updatedRoom = this.roomManager.getRoom(roomId)
+    if (updatedRoom) {
+      this.io.to(roomId).emit('player-left', updatedRoom)
+      this.io.to(roomId).emit('chat-message', {
+        userId: 'system',
+        username: 'System',
+        message: `${target.username} was kicked by the host.`,
+        timestamp: Date.now(),
+        isSystem: true,
+      })
+    }
+  }
+
+  handleClearCanvas(socket: Socket, roomId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.drawer !== socket.id) throw new Error('Only the drawer can clear')
+
+    // Broadcast clear to ALL players in the room (including drawer)
+    this.io.to(roomId).emit('canvas-cleared')
+  }
+
   private cleanupAfterLeave(room: Room, leftSocketId: string): void {
     const updatedRoom = this.roomManager.getRoom(room.id)
 

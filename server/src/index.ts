@@ -96,6 +96,41 @@ io.on('connection', (socket: Socket) => {
     }
   })
 
+  socket.on('reroll', (data: { roomId: string }, callback) => {
+    try {
+      const result = gameManager.handleReroll(socket, data.roomId)
+      callback(result)
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
+  socket.on('skip-turn', (data: { roomId: string }, callback) => {
+    try {
+      gameManager.handleSkipTurn(socket, data.roomId)
+      callback({ success: true })
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
+  socket.on('kick-player', (data: { roomId: string; targetId: string }, callback) => {
+    try {
+      gameManager.handleKickPlayer(socket, data.roomId, data.targetId)
+      callback({ success: true })
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
+  socket.on('clear-canvas', (data: { roomId: string }) => {
+    try {
+      gameManager.handleClearCanvas(socket, data.roomId)
+    } catch (error) {
+      console.error('[Clear] Error:', error)
+    }
+  })
+
   socket.on('leave-room', () => {
     gameManager.handleLeaveRoom(socket)
   })

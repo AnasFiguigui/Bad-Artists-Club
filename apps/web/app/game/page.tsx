@@ -7,9 +7,8 @@ import { gameStore } from '@/lib/store'
 import { Room, ChatMessage as ChatMessageType, DrawStroke } from '@/lib/types'
 import { Canvas, CanvasHandle } from '@/components/Canvas'
 import { Chat } from '@/components/Chat'
-import { PlayerList } from '@/components/PlayerList'
-import { Timer } from '@/components/Timer'
-import { ScoreBoard } from '@/components/ScoreBoard'
+import { GameNavbar } from '@/components/GameNavbar'
+import { PlayerLeaderboard } from '@/components/PlayerLeaderboard'
 import { BrushControls } from '@/components/BrushControls'
 
 export default function GamePage() {
@@ -26,6 +25,7 @@ export default function GamePage() {
   const [gameEnded, setGameEnded] = useState(false)
   const [finalRoom, setFinalRoom] = useState<Room | null>(null)
   const [cooldown, setCooldown] = useState(0)
+  const [muted, setMuted] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
 
@@ -121,6 +121,19 @@ export default function GamePage() {
       gameStore.setState({ room: updatedRoom })
     })
 
+    sock.on('canvas-cleared', () => {
+      canvasRef.current?.clear()
+    })
+
+    sock.on('reroll', ({ hint }: { hint: string }) => {
+      setRoom((prev) => prev ? { ...prev, hint } : prev)
+    })
+
+    sock.on('kicked', () => {
+      alert('You have been kicked from the room.')
+      router.push('/')
+    })
+
     // --- Request current game state (handles race condition) ---
     // The server may have emitted round-start before this page mounted.
     // request-game-state lets us recover the current round data.
@@ -164,6 +177,9 @@ export default function GamePage() {
       sock.off('game-ended')
       sock.off('turn-cooldown')
       sock.off('game-restarted')
+      sock.off('canvas-cleared')
+      sock.off('reroll')
+      sock.off('kicked')
     }
   }, [username, roomId, router])
 
@@ -185,10 +201,8 @@ export default function GamePage() {
   }
 
   const handleLeaveGame = () => {
-    if (confirm('Leave the game? You cannot rejoin.')) {
-      if (socket) {
-        socket.emit('leave-room')
-      }
+    if (confirm('Leave the game?')) {
+      if (socket) socket.emit('leave-room')
       router.push('/')
     }
   }
@@ -204,20 +218,43 @@ export default function GamePage() {
     }
   }
 
-  const [roomIdCopied, setRoomIdCopied] = useState(false)
+  const handleClearCanvas = () => {
+    if (socket && roomId) {
+      canvasRef.current?.clear()
+      socket.emit('clear-canvas', { roomId })
+    }
+  }
 
-  const handleCopyRoomId = () => {
-    if (roomId) {
-      const link = `${globalThis.location.origin}/room/${roomId}`
-      navigator.clipboard.writeText(link)
-      setRoomIdCopied(true)
-      setTimeout(() => setRoomIdCopied(false), 2000)
+  const handleReroll = () => {
+    if (socket && roomId) {
+      socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string }) => {
+        if (response.success && response.answer && response.hint) {
+          setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint } : prev)
+          canvasRef.current?.clear()
+          socket.emit('clear-canvas', { roomId })
+        }
+      })
+    }
+  }
+
+  const handleSkipTurn = () => {
+    if (socket && roomId) {
+      socket.emit('skip-turn', { roomId }, () => {})
+    }
+  }
+
+  const handleKickPlayer = (targetId: string) => {
+    if (socket && roomId) {
+      const target = room?.players.find((p) => p.id === targetId)
+      if (target && confirm(`Kick ${target.username}?`)) {
+        socket.emit('kick-player', { roomId, targetId }, () => {})
+      }
     }
   }
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 to-black flex items-center justify-center">
+      <div className="h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-white text-2xl animate-pulse">Loading game...</div>
       </div>
     )
@@ -225,162 +262,191 @@ export default function GamePage() {
 
   const isHost = room.host === socket?.id
   const playerCount = room.players.length
-  const totalTurns = room.totalRounds * playerCount
-  const currentTurn = (room.turnIndex ?? 0) + 1
 
   // Game ended overlay
   if (gameEnded && finalRoom) {
     const sortedPlayers = [...finalRoom.players].sort((a, b) => b.score - a.score)
     return (
-      <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-8">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-4xl font-bold text-white text-center mb-8">Game Over!</h1>
-          <div className="bg-gray-900 rounded-lg p-6 border border-purple-500 mb-8">
-            <h2 className="text-2xl font-bold text-white mb-4 text-center">Final Scores</h2>
-            <div className="space-y-3">
-              {sortedPlayers.map((player, idx) => (
-                <div
-                  key={player.id}
-                  className={`flex justify-between items-center p-4 rounded ${
-                    idx === 0 ? 'bg-yellow-900 border border-yellow-500' : 'bg-gray-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                    </span>
-                    <span className="text-white font-semibold text-lg">{player.username}</span>
+      <div className="h-screen bg-gray-950 flex items-center justify-center">
+        <div className="max-w-lg w-full mx-4">
+          <h1 className="text-4xl font-bold text-white text-center mb-6">Game Over!</h1>
+          <div className="bg-gray-900 rounded-xl p-6 border border-purple-500/50 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4 text-center">Final Scores</h2>
+            <div className="space-y-2">
+              {sortedPlayers.map((player, idx) => {
+                const medals: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
+                const medal = medals[idx] || `#${idx + 1}`
+                return (
+                  <div
+                    key={player.id}
+                    className={`flex justify-between items-center p-3 rounded-lg ${
+                      idx === 0 ? 'bg-yellow-900/50 border border-yellow-500/50' : 'bg-gray-800'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl w-8">{medal}</span>
+                      <span className="text-white font-semibold">{player.username}</span>
+                    </div>
+                    <span className="text-purple-400 font-bold">{player.score} pts</span>
                   </div>
-                  <span className="text-purple-400 font-bold text-xl">{player.score} pts</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
-
-          <div className="flex gap-4 justify-center">
+          <div className="flex gap-3 justify-center">
             {isHost && (
               <button
                 onClick={handleRestartGame}
-                className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold text-lg transition-colors"
+                className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
               >
-                Start Game
+                Play Again
               </button>
             )}
             <button
               onClick={handleLeaveGame}
-              className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-lg transition-colors"
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors"
             >
               Leave
             </button>
           </div>
           {!isHost && (
-            <p className="text-gray-400 text-center mt-4">Waiting for the host to start a new game...</p>
+            <p className="text-gray-400 text-center mt-3 text-sm">Waiting for host to start...</p>
           )}
         </div>
-      </main>
+      </div>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-purple-900 to-black p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Notification Banner */}
-        {notification && (
-          <div className="mb-4 p-4 bg-blue-600 text-white rounded border border-blue-400 animate-pulse">
-            {notification}
-          </div>
-        )}
+    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
+      {/* Navbar */}
+      <GameNavbar
+        roomId={roomId || ''}
+        isDrawer={isDrawer}
+        answer={room.answer}
+        hint={room.hint}
+        timeRemaining={timeRemaining}
+        totalTime={room.drawTime}
+        round={room.round}
+        totalRounds={room.totalRounds}
+        turnIndex={room.turnIndex ?? 0}
+        playerCount={playerCount}
+        muted={muted}
+        onToggleMute={() => setMuted(!muted)}
+      />
 
-        {/* Turn cooldown banner */}
-        {cooldown > 0 && (
-          <div className="mb-4 p-4 bg-indigo-700 text-white rounded border border-indigo-400 text-center text-lg font-bold animate-pulse">
-            Next turn starting in {cooldown}...
-          </div>
-        )}
+      {/* Notification banner */}
+      {notification && (
+        <div className="px-4 py-2 bg-blue-600 text-white text-sm text-center font-medium">
+          {notification}
+        </div>
+      )}
 
-        {/* Round-ended answer reveal */}
-        {roundAnswer && (
-          <div className="mb-4 p-4 bg-yellow-600 text-white rounded border border-yellow-400 text-center text-lg font-bold">
-            The answer was: {roundAnswer}
-          </div>
-        )}
+      {/* Cooldown banner */}
+      {cooldown > 0 && (
+        <div className="px-4 py-2 bg-indigo-700 text-white text-sm text-center font-bold animate-pulse">
+          Next turn in {cooldown}...
+        </div>
+      )}
 
-        {/* Top Bar with Room Info */}
-        <div className="mb-8 flex justify-between items-center bg-gray-900 p-4 rounded border border-purple-500">
-          <div>
-            <h2 className="text-sm text-gray-400">Room ID</h2>
-            <p className="text-xl font-mono font-bold text-purple-400">{roomId}</p>
+      {/* Answer reveal */}
+      {roundAnswer && (
+        <div className="px-4 py-2 bg-yellow-600 text-white text-sm text-center font-bold">
+          The answer was: {roundAnswer}
+        </div>
+      )}
+
+      {/* Main content: Left sidebar | Canvas center | Right sidebar */}
+      <div className="flex-1 flex min-h-0">
+        {/* Left sidebar: Players + Round info */}
+        <div className="w-56 shrink-0 flex flex-col border-r border-gray-800 bg-gray-900/50">
+          {/* Round info */}
+          <div className="px-3 py-2 border-b border-gray-700/50">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-gray-400">Round</span>
+              <span className="text-white font-bold">{room.round}/{room.totalRounds}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs mt-1">
+              <span className="text-gray-400">Turn</span>
+              <span className="text-white font-bold">{(room.turnIndex ?? 0) + 1}/{room.totalRounds * playerCount}</span>
+            </div>
+            <div className="mt-2 w-full bg-gray-800 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all ${
+                  timeRemaining > room.drawTime * 0.5
+                    ? 'bg-green-500'
+                    : timeRemaining > room.drawTime * 0.25
+                    ? 'bg-yellow-500'
+                    : 'bg-red-500'
+                }`}
+                style={{ width: `${room.drawTime > 0 ? (timeRemaining / room.drawTime) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-center mt-1">
+              <span className={`font-semibold ${isDrawer ? 'text-orange-400' : 'text-blue-400'}`}>
+                {isDrawer ? '✎ Drawing' : '👀 Guessing'}
+              </span>
+            </p>
           </div>
-          <button
-            onClick={handleCopyRoomId}
-            className={`px-4 py-2 rounded font-semibold transition-colors ${
-              roomIdCopied
-                ? 'bg-green-600 text-white'
-                : 'bg-purple-600 hover:bg-purple-700 text-white'
-            }`}
-          >
-            {roomIdCopied ? '✓ Copied!' : 'Copy Room Link'}
-          </button>
-          <button
-            onClick={handleLeaveGame}
-            className="px-4 py-2 rounded font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors"
-          >
-            Leave Game
-          </button>
+
+          {/* Player leaderboard */}
+          <div className="flex-1 min-h-0">
+            <PlayerLeaderboard
+              players={room.players}
+              scores={room.scores}
+              currentPlayerId={socket?.id || ''}
+              hostId={room.host}
+              drawerId={room.drawer}
+              onKick={isHost ? handleKickPlayer : undefined}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left: Canvas and Game Info */}
-          <div className="lg:col-span-3 space-y-4">
-            {/* Header */}
-            <div className="bg-gray-900 p-4 rounded border border-purple-500">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Round {room.round}/{room.totalRounds} — Turn {currentTurn}/{totalTurns}</h1>
-                  <p className="text-gray-400 text-xl font-mono tracking-widest">{room.hint}</p>
-                  {isDrawer && room.answer && (
-                    <p className="text-green-400 mt-1 text-sm">Draw: <span className="font-bold text-lg">{room.answer}</span></p>
-                  )}
-                  <p className="text-sm mt-2">
-                    <span className={`font-semibold ${isDrawer ? 'text-orange-400' : 'text-blue-400'}`}>
-                      {isDrawer ? '✎ You are drawing' : '👀 You are guessing'}
-                    </span>
-                  </p>
-                </div>
-              </div>
+        {/* Center: Canvas + Brush Controls */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Canvas area */}
+          <div className="flex-1 flex items-center justify-center p-3 min-h-0">
+            <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }}>
+              {roomId && (
+                <Canvas
+                  ref={canvasRef}
+                  isDrawer={isDrawer}
+                  onDraw={handleDraw}
+                  roomId={roomId}
+                  playerId={socket?.id || ''}
+                />
+              )}
             </div>
+          </div>
 
-            {/* Canvas */}
-            {roomId && (
-              <Canvas
-                ref={canvasRef}
-                isDrawer={isDrawer}
-                onDraw={handleDraw}
-                roomId={roomId}
-                playerId={socket?.id || ''}
-              />
-            )}
-
-            {/* Brush Controls — wired to Canvas via ref */}
-            {isDrawer && (
+          {/* Brush controls bar */}
+          {isDrawer && (
+            <div className="shrink-0 px-3 pb-2">
               <BrushControls
                 onColorChange={(color) => canvasRef.current?.setColor(color)}
                 onSizeChange={(size) => canvasRef.current?.setSize(size)}
                 onToolChange={(tool) => canvasRef.current?.setTool(tool)}
+                onClear={handleClearCanvas}
+                onReroll={handleReroll}
+                onSkip={handleSkipTurn}
                 isDrawer={isDrawer}
               />
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {/* Right: Sidebar */}
-          <div className="space-y-4">
-            <Timer timeRemaining={timeRemaining} totalTime={room.drawTime} />
-            <PlayerList players={room.players} currentPlayerId={socket?.id || ''} />
-            <ScoreBoard room={room} />
-            {roomId && <Chat isDrawer={isDrawer} messages={messages} onSendMessage={handleSendMessage} roomId={roomId} />}
-          </div>
+        {/* Right sidebar: Chat */}
+        <div className="w-72 shrink-0 border-l border-gray-800 bg-gray-900/50">
+          {roomId && (
+            <Chat
+              isDrawer={isDrawer}
+              messages={messages}
+              onSendMessage={handleSendMessage}
+              roomId={roomId}
+            />
+          )}
         </div>
       </div>
-    </main>
+    </div>
   )
 }

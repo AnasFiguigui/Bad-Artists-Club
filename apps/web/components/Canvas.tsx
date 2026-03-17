@@ -135,27 +135,17 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     }
 
     return (
-      <div className="flex flex-col gap-4">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={startDrawing}
-          onMouseUp={stopDrawing}
-          onMouseMove={draw}
-          onMouseLeave={stopDrawing}
-          className={`border-4 border-purple-500 rounded bg-white w-full ${
-            isDrawer ? 'cursor-crosshair' : 'pointer-events-none opacity-70'
-          }`}
-          style={{ aspectRatio: '16 / 9' }}
-        />
-        {isDrawer && (
-          <button
-            onClick={clearCanvas}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold"
-          >
-            Clear Canvas
-          </button>
-        )}
-      </div>
+      <canvas
+        ref={canvasRef}
+        onMouseDown={startDrawing}
+        onMouseUp={stopDrawing}
+        onMouseMove={draw}
+        onMouseLeave={stopDrawing}
+        className={`border-2 border-purple-500/50 rounded-lg bg-white w-full ${
+          isDrawer ? 'cursor-crosshair' : 'pointer-events-none'
+        }`}
+        style={{ aspectRatio: '16 / 9' }}
+      />
     )
   }
 )
