@@ -57,8 +57,8 @@ export function GameNavbar({
     <nav className="flex items-center justify-between bg-gray-900/90 border-b border-indigo-500/50 px-2 sm:px-4 h-12 sm:h-14 shrink-0">
       {/* Left: Logo + Round info */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-        <div className="w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0">
-          <img src="/images/logo-bac-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
+        <div className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0">
+          <img src="/images/logo-bac-txt-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
         </div>
         <div className="text-xs text-gray-400 hidden md:block">
           R{round}/{totalRounds} · T{currentTurn}/{totalTurns}

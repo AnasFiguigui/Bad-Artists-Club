@@ -4,6 +4,8 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { gameStore } from '@/lib/store'
 import { Grainient } from '@/components/Grainient'
+import { HandDrawnBorder } from '@/components/HandDrawnBorder'
+import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
 function HomeContent() {
   const router = useRouter()
@@ -46,95 +48,130 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen relative flex items-center justify-center p-4">
+    <main className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
+      {/* Background with gradient and noise */}
       <Grainient
         color1="#FF9FFC"
         color2="#5227FF"
         color3="#B19EEF"
         className="fixed inset-0 -z-10"
       />
+      <BackgroundDoodles />
+      
+      {/* Main card container */}
       <div className="max-w-md w-full">
-        <div className="bg-white/5 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white/20">
-          <div className="w-144 h-144 mx-auto mb-4">
-            <img src="/images/logo-bac-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
-          </div>
-          <p className="text-white/90 text-center mb-8">Draw. Guess. Win.</p>
-
-          {isJoining ? (
-            // JOIN ROOM FLOW - Simple and clean
-            <div className="space-y-6">
-              <p className="text-gray-50 text-center text-sm">Joining room: <span className="font-bold text-indigo-500">{roomId}</span></p>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-100 mb-2">Your Name</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your name"
-                  onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-100 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
-                />
+        {/* Layered paper effect */}
+        <div className="paper-layer paper-layer-1" />
+        <div className="paper-layer paper-layer-2" />
+        
+        {/* Main card with hand-drawn aesthetic */}
+        <div className="relative card-hand-drawn card-hover rotate-subtle p-8 z-10">
+          {/* Hand-drawn border SVG */}
+          <HandDrawnBorder />
+          
+          {/* Content */}
+          <div className="relative z-20">
+            {/* Logo with decorative underline */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-128 h-128 sm:w-144 sm:h-144 mx-auto mb-2 drop-shadow-lg">
+                <img src="/images/logo-bac-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain opacity-90" />
               </div>
-
-              <button
-                onClick={handleJoinRoom}
-                disabled={loading}
-                className="w-full bg-blue-500/80 hover:bg-blue-500/60 border border-blue-400/70 disabled:opacity-50 text-white font-bold py-3 rounded-lg backdrop-blur-sm transition-colors"
-              >
-                {loading ? 'Joining...' : 'Join Room'}
-              </button>
-              
-              <p className="text-gray-400 text-center text-xs">
-                <a href="/" className="text-white hover:text-white/70">Create a new room instead</a>
-              </p>
+              {/* <div className="h-1 w-16 bg-gradient-to-r from-transparent via-pink-400/60 to-transparent rounded-full" /> */}
             </div>
-          ) : (
-            // CREATE ROOM FLOW
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-100 mb-2">Your Name</label>
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your name"
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
-                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-100 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
-                />
+            
+            {/* Tagline */}
+            <p className="font-caveat text-2xl text-white/90 text-center mb-8 leading-relaxed">
+              Draw. Guess. Win.
+            </p>
+
+            {isJoining ? (
+              // JOIN ROOM FLOW
+              <div className="space-y-5">
+                <p className="text-gray-50 text-center text-sm">
+                  Joining: <span className="font-bold text-purple-800/95 accent-doodle">{roomId}</span>
+                </p>
+                
+                <div>
+                  <label className="block text-xl font-medium text-gray-100 mb-2 font-caveat text-base">Your Name</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Type here..."
+                    onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-100 focus:outline-none focus:border-purple-300/60 backdrop-blur-sm transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={handleJoinRoom}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-blue-500/70 to-blue-600/70 hover:from-blue-500 hover:to-blue-600 border border-blue-400/70 disabled:opacity-50 text-white font-bold font-caveat text-lg py-3 rounded-lg backdrop-blur-sm transition-all hover:shadow-lg active:scale-95"
+                >
+                  {loading ? 'Joining...' : 'Join Room'}
+                </button>
+                
+                <p className="text-gray-300 text-center text-xs">
+                  <a href="/" className="text-purple-100 hover:text-white underline">Create a new room instead</a>
+                </p>
               </div>
+            ) : (
+              // CREATE ROOM FLOW
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-xl font-medium text-gray-100 mb-2 font-caveat">Your Name</label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Type here..."
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-100 focus:outline-none focus:border-purple-300/60 backdrop-blur-sm transition-all"
+                  />
+                </div>
 
-              <button
-                onClick={handleCreateRoom}
-                disabled={loading}
-                className="w-full bg-indigo-500/80 hover:bg-indigo-500/60 border border-indigo-400/30 disabled:opacity-50 text-white font-bold py-3 rounded-lg backdrop-blur-sm transition-colors"
-              >
-                {loading ? 'Creating...' : 'Create Room'}
-              </button>
+                <button
+                  onClick={handleCreateRoom}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-purple-500/70 to-indigo-600/70 hover:from-purple-500 hover:to-indigo-600 border border-purple-400/70 disabled:opacity-50 text-white font-bold font-caveat text-lg py-3 rounded-lg backdrop-blur-sm transition-all hover:shadow-lg active:scale-95"
+                >
+                  {loading ? '✨ Creating Room...' : 'Create Room'}
+                </button>
 
-              {/* Join with Room ID */}
-              <div className="pt-4 border-t border-white/30">
-                <p className="text-gray-100 text-sm mb-3 text-center">Or join an existing room</p>
+                {/* Divider with personality */}
+                <div className="pt-4 border-t border-white/20 relative">
+                  <div className="absolute left-0 right-0 -top-3 flex justify-center">
+                    {/* <span className="bg-gradient-to-b from-purple-900/80 via-purple-700 to-purple-900/80 px-3 text-xs text-white/90 font-caveat text-sm">or</span> */}
+                  </div>
+                  <p className="text-gray-100 text-sm mb-4 text-center mt-2 font-caveat">Join with Room ID</p>
+                </div>
+
+                {/* Join with Room ID section */}
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={joinRoomId}
                     onChange={(e) => setJoinRoomId(e.target.value)}
-                    placeholder="Enter Room ID"
+                    placeholder="Room code..."
                     onKeyDown={(e) => e.key === 'Enter' && handleJoinWithId()}
-                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-100 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
+                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white focus:outline-none focus:border-blue-300/60 backdrop-blur-sm transition-all text-sm"
                   />
                   <button
                     onClick={handleJoinWithId}
                     disabled={loading || !joinRoomId.trim()}
-                    className="bg-blue-500/80 hover:bg-blue-500/60 border border-blue-400/80 disabled:opacity-50 disabled:bg-gray-500/85 disabled:border-gray-400/85 text-blue-100 font-bold px-5 py-2 rounded-lg backdrop-blur-sm transition-colors"
+                    className="bg-gradient-to-r from-blue-500/80 to-blue-600/80 hover:from-blue-500 hover:to-blue-600 border border-blue-400/70 disabled:opacity-50 disabled:from-zinc-500/80 disabled:to-zinc-600/80 disabled:border-zinc-500/80 disabled:cursor-not-allowed text-white font-bold px-5 py-2 rounded-lg backdrop-blur-sm transition-all hover:shadow-md disabled:hover:shadow-none text-sm"
                   >
                     Join
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Playful footer hint */}
+            <div className="text-center mt-6">
+              <p className="text-xs text-white">Ready to draw? Bring your worst!</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </main>

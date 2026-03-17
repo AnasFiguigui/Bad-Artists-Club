@@ -6,6 +6,8 @@ import { initSocket, waitForSocketConnection } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room } from '@/lib/types'
 import { Grainient } from '@/components/Grainient'
+import { HandDrawnBorder } from '@/components/HandDrawnBorder'
+import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
 export default function RoomPage() {
   const router = useRouter()
@@ -191,51 +193,60 @@ export default function RoomPage() {
   const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪' }
 
   return (
-    <main className="min-h-screen relative p-4 sm:p-8">
+    <main className="min-h-screen relative p-4 sm:p-8 overflow-hidden">
       <Grainient
         color1="#FF9FFC"
         color2="#5227FF"
         color3="#B19EEF"
         className="fixed inset-0 -z-10"
       />
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
+      <BackgroundDoodles />
+      
+      <div className="max-w-4xl mx-auto relative z-10">
+        {/* Header with personality */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white">Lobby</h1>
-            <p className="text-gray-400 text-sm mt-1">Room: <span className="text-indigo-400 font-mono">{room.id}</span></p>
+            <h1 className="text-4xl sm:text-5xl font-caveat font-bold text-white leading-tight">Game Lobby</h1>
+            <p className="text-white/60 text-sm mt-2">
+              Room: <span className="font-mono text-purple-600 text-base font-bold">{room.id}</span>
+            </p>
           </div>
+          <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyLink}
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                linkCopied ? 'bg-emerald-500/30 border border-emerald-400/30 text-emerald-100' : 'bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-100'
-              } backdrop-blur-sm`}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all hover:shadow-md backdrop-blur-sm ${
+                linkCopied ? 'bg-emerald-500/50 border border-emerald-400/50 text-white' : 'bg-indigo-500/40 hover:bg-indigo-500/50 border border-indigo-400/30 text-white'
+              }`}
             >
-              {linkCopied ? '✓ Link Copied!' : '🔗 Copy Invite Link'}
+              {linkCopied ? '✓ Copied!' : '🔗 Invite'}
             </button>
             <button
               onClick={handleCopyRoomId}
-              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                roomIdCopied ? 'bg-emerald-500/30 border border-emerald-400/30 text-emerald-100' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
-              } backdrop-blur-sm`}
+              className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all hover:shadow-md backdrop-blur-sm text-xs sm:text-sm ${
+                roomIdCopied ? 'bg-emerald-500/40 border border-emerald-400/40 text-emerald-100' : 'bg-white/20 hover:bg-white/30 border border-white/40 text-white'
+              }`}
             >
-              {roomIdCopied ? '✓ Copied!' : '📋 Room ID'}
+              {roomIdCopied ? '✓' : '📋'}
             </button>
+          </div>
           </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Left: Game Settings */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">⚙️ Game Settings</h2>
+          <div className="card-hand-drawn card-hover rotate-subtle p-6 sm:p-8">
+            <h2 className="text-2xl sm:text-3xl font-caveat font-bold text-white mb-6 flex items-center gap-2">
+              ⚙️ Game Settings
+            </h2>
             {isHost ? (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="text-xs text-gray-300 block mb-1">Theme</label>
+                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</label>
                   <select
                     value={room.theme}
                     onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
                   >
                     <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
                     <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
@@ -243,11 +254,11 @@ export default function RoomPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-300 block mb-1">Rounds</label>
+                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</label>
                   <select
                     value={room.totalRounds}
                     onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
                   >
                     {[3, 5, 8, 10].map((r) => (
                       <option key={r} value={r} className="bg-gray-900">{r} rounds</option>
@@ -255,11 +266,11 @@ export default function RoomPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-300 block mb-1">Draw Time</label>
+                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</label>
                   <select
                     value={room.drawTime}
                     onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
                   >
                     {[60, 90, 120].map((t) => (
                       <option key={t} value={t} className="bg-gray-900">{t} seconds</option>
@@ -268,72 +279,75 @@ export default function RoomPage() {
                 </div>
               </div>
             ) : (
-              <div className="space-y-3 text-gray-300">
-                <div className="flex justify-between items-center py-2 border-b border-white/10">
-                  <span className="text-gray-400">Theme</span>
-                  <span className="text-white font-medium">{themeEmojis[room.theme]} {themeLabels[room.theme]}</span>
+              <div className="space-y-4 text-white/70">
+                <div className="flex justify-between items-center py-3 px-3 bg-white/5 rounded-lg border border-white/10">
+                  <span className="text-white/80 font-medium">Theme</span>
+                  <span className="text-white font-semibold">{themeEmojis[room.theme]} {themeLabels[room.theme]}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-white/10">
-                  <span className="text-gray-400">Rounds</span>
-                  <span className="text-white font-medium">{room.totalRounds}</span>
+                <div className="flex justify-between items-center py-3 px-3 bg-white/5 rounded-lg border border-white/10">
+                  <span className="text-white/80 font-medium">Rounds</span>
+                  <span className="text-white font-semibold">{room.totalRounds}</span>
                 </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-400">Draw Time</span>
-                  <span className="text-white font-medium">{room.drawTime}s</span>
+                <div className="flex justify-between items-center py-3 px-3 bg-white/5 rounded-lg border border-white/10">
+                  <span className="text-white/80 font-medium">Draw Time</span>
+                  <span className="text-white font-semibold">{room.drawTime}s</span>
                 </div>
-                <p className="text-gray-400 text-xs italic pt-2">Only the host can change settings</p>
+                <p className="text-white text-xs italic pt-2 float-hint">Only the host can change settings</p>
               </div>
             )}
           </div>
 
           {/* Right: Players */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
-            <h2 className="text-xl font-bold text-white mb-4">
+          <div className="card-hand-drawn card-hover rotate-subtle p-6 sm:p-8">
+            <h2 className="text-2xl sm:text-3xl font-caveat font-bold text-white mb-6 flex items-center gap-2">
               👥 Players ({room.players.length})
             </h2>
 
-            <div className="space-y-2 mb-6">
+            <div className="space-y-3 mb-6">
               {room.players.map((player) => (
-                <div key={player.id} className="bg-white/10 p-3 rounded-lg flex items-center justify-between border border-white/10">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${player.ready ? 'bg-emerald-400' : 'bg-gray-600'}`} />
-                    <span className="text-white font-semibold text-sm">{player.username}</span>
-                    {player.isHost && <span className="text-yellow-400 text-xs font-bold">👑</span>}
-                    {player.id === socket?.id && <span className="text-blue-400 text-xs">(you)</span>}
+                <div
+                  key={player.id}
+                  className="bg-white/10 hover:bg-white/15 border border-white/20 p-4 rounded-lg flex items-center justify-between transition-all duration-200 group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full transition-all ${player.ready ? 'bg-emerald-400 shadow-lg shadow-emerald-400/50' : 'bg-gray-500'}`} />
+                    <span className="text-white font-semibold text-sm group-hover:text-white/95">{player.username}</span>
+                    {player.isHost && <span className="text-lg">👑</span>}
+                    {player.id === socket?.id && <span className="text-xs text-blue-300 font-medium">(you)</span>}
                   </div>
-                  <span className={`text-xs font-bold ${player.ready ? 'text-emerald-400' : 'text-gray-500'}`}>
+                  <span className={`text-xs font-bold transition-colors ${player.ready ? 'text-emerald-300' : 'text-gray-500'}`}>
                     {player.ready ? '✓ Ready' : 'Waiting...'}
                   </span>
                 </div>
               ))}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <button
                 onClick={handleReady}
-                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 px-4 py-2.5 rounded-lg font-semibold backdrop-blur-sm transition-colors"
+                className="w-full bg-gradient-to-r from-emerald-500/30 to-emerald-600/30 hover:from-emerald-500/40 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-emerald-500/25"
               >
-                Toggle Ready
+                {room.players.find((p) => p.id === socket?.id)?.ready ? 'Change Mind' : '✓ Ready to Play'}
               </button>
 
               {isHost && (
                 <button
                   onClick={handleStartGame}
                   disabled={!allReady || room.players.length < 2}
-                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed text-indigo-100 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-colors"
+                  className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 disabled:opacity-40 disabled:cursor-not-allowed text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-indigo-500/25"
                 >
-                  Start Game
+                  Launch Game
                 </button>
               )}
 
               {isHost && !allReady && room.players.length >= 2 && (
-                <p className="text-gray-400 text-xs text-center">All players must be ready to start</p>
+                <p className="text-white text-xs text-center font-medium italic float-hint">All players must be ready</p>
               )}
               {isHost && room.players.length < 2 && (
-                <p className="text-gray-400 text-xs text-center">Need at least 2 players to start</p>
+                <p className="text-white text-xs text-center font-medium italic float-hint">Need 2+ players to start</p>
               )}
               {!isHost && (
-                <p className="text-gray-400 text-xs text-center">Waiting for the host to start the game...</p>
+                <p className="text-white text-xs text-center font-medium italic float-hint">Waiting for host...</p>
               )}
             </div>
           </div>
