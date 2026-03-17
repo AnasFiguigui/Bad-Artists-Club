@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { initSocket, waitForSocketConnection } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room } from '@/lib/types'
+import { Grainient } from '@/components/Grainient'
 
 export default function RoomPage() {
   const router = useRouter()
@@ -170,7 +171,7 @@ export default function RoomPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-2xl animate-pulse">Joining room...</div>
       </div>
     )
@@ -178,7 +179,7 @@ export default function RoomPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-2xl">Room not found</div>
       </div>
     )
@@ -190,7 +191,13 @@ export default function RoomPage() {
   const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪' }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black p-4 sm:p-8">
+    <main className="min-h-screen relative p-4 sm:p-8">
+      <Grainient
+        color1="#FF9FFC"
+        color2="#5227FF"
+        color3="#B19EEF"
+        className="fixed inset-0 -z-10"
+      />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -201,16 +208,16 @@ export default function RoomPage() {
             <button
               onClick={handleCopyLink}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                linkCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+                linkCopied ? 'bg-emerald-500/30 border border-emerald-400/30 text-emerald-100' : 'bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-100'
+              } backdrop-blur-sm`}
             >
               {linkCopied ? '✓ Link Copied!' : '🔗 Copy Invite Link'}
             </button>
             <button
               onClick={handleCopyRoomId}
               className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                roomIdCopied ? 'bg-emerald-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
-              }`}
+                roomIdCopied ? 'bg-emerald-500/30 border border-emerald-400/30 text-emerald-100' : 'bg-white/10 hover:bg-white/20 border border-white/20 text-white'
+              } backdrop-blur-sm`}
             >
               {roomIdCopied ? '✓ Copied!' : '📋 Room ID'}
             </button>
@@ -219,54 +226,54 @@ export default function RoomPage() {
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Left: Game Settings */}
-          <div className="bg-gray-900 rounded-xl p-6 border border-indigo-500/50">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">⚙️ Game Settings</h2>
             {isHost ? (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">Theme</label>
+                  <label className="text-xs text-gray-300 block mb-1">Theme</label>
                   <select
                     value={room.theme}
                     onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                   >
-                    <option value="lol">⚔️ League of Legends</option>
-                    <option value="elden-ring">🗡️ Elden Ring</option>
-                    <option value="dbd">🔪 Dead by Daylight</option>
+                    <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
+                    <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
+                    <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">Rounds</label>
+                  <label className="text-xs text-gray-300 block mb-1">Rounds</label>
                   <select
                     value={room.totalRounds}
                     onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                   >
                     {[3, 5, 8, 10].map((r) => (
-                      <option key={r} value={r}>{r} rounds</option>
+                      <option key={r} value={r} className="bg-gray-900">{r} rounds</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-gray-400 block mb-1">Draw Time</label>
+                  <label className="text-xs text-gray-300 block mb-1">Draw Time</label>
                   <select
                     value={room.drawTime}
                     onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                   >
                     {[60, 90, 120].map((t) => (
-                      <option key={t} value={t}>{t} seconds</option>
+                      <option key={t} value={t} className="bg-gray-900">{t} seconds</option>
                     ))}
                   </select>
                 </div>
               </div>
             ) : (
               <div className="space-y-3 text-gray-300">
-                <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
                   <span className="text-gray-400">Theme</span>
                   <span className="text-white font-medium">{themeEmojis[room.theme]} {themeLabels[room.theme]}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-800">
+                <div className="flex justify-between items-center py-2 border-b border-white/10">
                   <span className="text-gray-400">Rounds</span>
                   <span className="text-white font-medium">{room.totalRounds}</span>
                 </div>
@@ -274,20 +281,20 @@ export default function RoomPage() {
                   <span className="text-gray-400">Draw Time</span>
                   <span className="text-white font-medium">{room.drawTime}s</span>
                 </div>
-                <p className="text-gray-500 text-xs italic pt-2">Only the host can change settings</p>
+                <p className="text-gray-400 text-xs italic pt-2">Only the host can change settings</p>
               </div>
             )}
           </div>
 
           {/* Right: Players */}
-          <div className="bg-gray-900 rounded-xl p-6 border border-indigo-500/50">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
             <h2 className="text-xl font-bold text-white mb-4">
               👥 Players ({room.players.length})
             </h2>
 
             <div className="space-y-2 mb-6">
               {room.players.map((player) => (
-                <div key={player.id} className="bg-gray-800 p-3 rounded-lg flex items-center justify-between">
+                <div key={player.id} className="bg-white/10 p-3 rounded-lg flex items-center justify-between border border-white/10">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${player.ready ? 'bg-emerald-400' : 'bg-gray-600'}`} />
                     <span className="text-white font-semibold text-sm">{player.username}</span>
@@ -304,7 +311,7 @@ export default function RoomPage() {
             <div className="space-y-2">
               <button
                 onClick={handleReady}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors"
+                className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 px-4 py-2.5 rounded-lg font-semibold backdrop-blur-sm transition-colors"
               >
                 Toggle Ready
               </button>
@@ -313,7 +320,7 @@ export default function RoomPage() {
                 <button
                   onClick={handleStartGame}
                   disabled={!allReady || room.players.length < 2}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-lg font-bold transition-colors"
+                  className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 disabled:opacity-50 disabled:cursor-not-allowed text-indigo-100 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-colors"
                 >
                   Start Game
                 </button>

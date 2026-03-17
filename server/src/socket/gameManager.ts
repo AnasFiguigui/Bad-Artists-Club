@@ -153,10 +153,23 @@ export class GameManager {
     this.io.to(roomId).emit('player-ready', updatedRoom)
   }
 
+  handleEnterFreeDraw(socket: Socket, roomId: string): void {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) throw new Error('Room not found')
+    if (room.host !== socket.id) throw new Error('Only host can enter free draw')
+    if (room.state === 'playing') throw new Error('Game already in progress')
+
+    console.log(`[Game] Host entering free draw in room ${roomId}`)
+    this.roomManager.updateRoomState(roomId, 'results')
+    const updatedRoom = this.roomManager.getRoom(roomId)!
+    this.io.to(roomId).emit('game-started', updatedRoom)
+  }
+
   handleStartGame(socket: Socket, roomId: string): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.host !== socket.id) throw new Error('Only host can start game')
+    if (room.players.length < 2) throw new Error('Need at least 2 players to start')
 
     console.log(`[Game] Starting game in room ${roomId}`)
     this.roomManager.updateRoomState(roomId, 'playing')
@@ -508,6 +521,7 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.host !== socket.id) throw new Error('Only host can restart game')
+    if (room.players.length < 2) throw new Error('Need at least 2 players to start')
 
     console.log(`[Game] Restarting game in room ${roomId}`)
 

@@ -125,6 +125,19 @@ io.on('connection', (socket: Socket) => {
     }
   })
 
+  socket.on('enter-free-draw', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'enter-free-draw', 2, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
+    try {
+      gameManager.handleEnterFreeDraw(socket, data.roomId)
+      callback({ success: true })
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
   socket.on('draw', (data) => {
     if (!rateLimit(socket.id, 'draw', 60, 1000)) return
     gameManager.handleDraw(socket, data)

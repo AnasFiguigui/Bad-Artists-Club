@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { gameStore } from '@/lib/store'
+import { Grainient } from '@/components/Grainient'
 
 function HomeContent() {
   const router = useRouter()
@@ -45,9 +46,15 @@ function HomeContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center p-4">
+    <main className="min-h-screen relative flex items-center justify-center p-4">
+      <Grainient
+        color1="#FF9FFC"
+        color2="#5227FF"
+        color3="#B19EEF"
+        className="fixed inset-0 -z-10"
+      />
       <div className="max-w-md w-full">
-        <div className="bg-gray-900 rounded-lg shadow-2xl p-8 border border-indigo-500">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
           <h1 className="text-4xl font-bold text-white mb-2 text-center">Bad Artists Club</h1>
           <p className="text-gray-400 text-center mb-8">Draw. Guess. Win.</p>
 
@@ -64,14 +71,14 @@ function HomeContent() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your name"
                   onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                 />
               </div>
 
               <button
                 onClick={handleJoinRoom}
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-3 rounded transition"
+                className="w-full bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 disabled:opacity-50 text-blue-100 font-bold py-3 rounded-lg backdrop-blur-sm transition-colors"
               >
                 {loading ? 'Joining...' : 'Join Room'}
               </button>
@@ -91,21 +98,21 @@ function HomeContent() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter your name"
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateRoom()}
-                  className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                 />
               </div>
 
               <button
                 onClick={handleCreateRoom}
                 disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold py-3 rounded transition"
+                className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 disabled:opacity-50 text-indigo-100 font-bold py-3 rounded-lg backdrop-blur-sm transition-colors"
               >
                 {loading ? 'Creating...' : 'Create Room'}
               </button>
 
               {/* Join with Room ID */}
-              <div className="pt-4 border-t border-gray-700">
-                <p className="text-gray-400 text-sm mb-3 text-center">Or join an existing room</p>
+              <div className="pt-4 border-t border-white/10">
+                <p className="text-gray-300 text-sm mb-3 text-center">Or join an existing room</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -113,12 +120,12 @@ function HomeContent() {
                     onChange={(e) => setJoinRoomId(e.target.value)}
                     placeholder="Enter Room ID"
                     onKeyDown={(e) => e.key === 'Enter' && handleJoinWithId()}
-                    className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                    className="flex-1 px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors"
                   />
                   <button
                     onClick={handleJoinWithId}
                     disabled={loading || !joinRoomId.trim()}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold px-5 py-2 rounded transition"
+                    className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 disabled:opacity-50 text-blue-100 font-bold px-5 py-2 rounded-lg backdrop-blur-sm transition-colors"
                   >
                     Join
                   </button>
@@ -135,7 +142,7 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center p-4">
+      <main className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="text-white text-lg">Loading...</div>
       </main>
     }>

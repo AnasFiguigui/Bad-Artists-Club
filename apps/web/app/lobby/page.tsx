@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { initSocket, getSocket } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room, GameConfig } from '@/lib/types'
+import { Grainient } from '@/components/Grainient'
 
 const DEFAULT_CONFIG: GameConfig = {
   theme: 'lol',
@@ -110,9 +111,24 @@ export default function LobbyPage() {
     if (roomId) {
       socket.emit('start-game', { roomId }, (response: any) => {
         console.log('Start Game response:', response)
+        if (!response.success) {
+          alert(response.error || 'Failed to start game')
+        }
       })
     } else {
       console.error('No roomId available')
+    }
+  }
+
+  const handleEnterFreeDraw = () => {
+    const socket = getSocket()
+    const roomId = gameStore.getState().roomId
+    if (roomId) {
+      socket.emit('enter-free-draw', { roomId }, (response: any) => {
+        if (!response.success) {
+          alert(response.error || 'Failed to enter game')
+        }
+      })
     }
   }
 
@@ -134,7 +150,7 @@ export default function LobbyPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 to-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-white text-2xl">Loading lobby...</div>
       </div>
     )
@@ -144,31 +160,37 @@ export default function LobbyPage() {
   const allReady = room.players.every((p) => p.ready)
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-900 to-black p-8">
+    <main className="min-h-screen relative p-8">
+      <Grainient
+        color1="#FF9FFC"
+        color2="#5227FF"
+        color3="#B19EEF"
+        className="fixed inset-0 -z-10"
+      />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold text-white mb-8">Room: {room.id}</h1>
 
         <div className="grid md:grid-cols-2 gap-8">
           {/* Left: Config */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-indigo-500">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">Game Settings</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-gray-300 mb-2">Theme</label>
+                <label className="block text-gray-200 mb-2 text-sm font-medium">Theme</label>
                 <select
                   value={config.theme}
                   onChange={(e) => handleUpdateConfig({ theme: e.target.value as any })}
-                  className="w-full px-3 py-2 bg-gray-800 text-white rounded border border-gray-700"
+                  className="w-full px-3 py-2 bg-white/10 text-white rounded-lg border border-white/20 backdrop-blur-sm focus:outline-none focus:border-white/40 transition-colors appearance-none cursor-pointer"
                 >
-                  <option value="lol">League of Legends</option>
-                  <option value="elden-ring">Elden Ring</option>
-                  <option value="dbd">Dead by Daylight</option>
+                  <option value="lol" className="bg-gray-900">League of Legends</option>
+                  <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
+                  <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-gray-300 mb-2">Rounds: {config.rounds}</label>
+                <label className="block text-gray-200 mb-2 text-sm font-medium">Rounds: {config.rounds}</label>
                 <input
                   type="range"
                   min="3"
@@ -176,12 +198,12 @@ export default function LobbyPage() {
                   step="1"
                   value={config.rounds}
                   onChange={(e) => handleUpdateConfig({ rounds: parseInt(e.target.value) as any })}
-                  className="w-full"
+                  className="w-full slider-modern"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-300 mb-2">Draw Time: {config.drawTime}s</label>
+                <label className="block text-gray-200 mb-2 text-sm font-medium">Draw Time: {config.drawTime}s</label>
                 <input
                   type="range"
                   min="60"
@@ -189,19 +211,19 @@ export default function LobbyPage() {
                   step="30"
                   value={config.drawTime}
                   onChange={(e) => handleUpdateConfig({ drawTime: parseInt(e.target.value) as any })}
-                  className="w-full"
+                  className="w-full slider-modern"
                 />
               </div>
             </div>
 
             <div className="space-y-2 mt-6">
-              <div className="p-3 bg-blue-900 border border-blue-500 rounded text-blue-100 text-sm mb-3">
+              <div className="p-3 bg-blue-500/10 border border-blue-400/30 rounded-lg text-blue-100 text-sm mb-3 backdrop-blur-sm">
                 ℹ️ Share the invite link or room ID with friends. Players can join anytime, even after the game starts!
               </div>
 
               <button
                 onClick={handleCopyLink}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                className="w-full bg-blue-500/20 hover:bg-blue-500/30 text-blue-100 border border-blue-400/30 px-4 py-2 rounded-lg backdrop-blur-sm transition-colors"
               >
                 {copied ? '✓ Copied Invite Link' : 'Copy Invite Link'}
               </button>
@@ -212,7 +234,7 @@ export default function LobbyPage() {
                   setCopied(true)
                   setTimeout(() => setCopied(false), 2000)
                 }}
-                className="w-full bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded text-sm"
+                className="w-full bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-100 border border-cyan-400/30 px-4 py-2 rounded-lg text-sm backdrop-blur-sm transition-colors"
               >
                 {copied ? '✓ Copied Room ID' : `Copy Room ID: ${room.id}`}
               </button>
@@ -220,12 +242,12 @@ export default function LobbyPage() {
           </div>
 
           {/* Right: Players */}
-          <div className="bg-gray-900 rounded-lg p-6 border border-indigo-500">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">Players ({room.players.length})</h2>
 
             <div className="space-y-2 mb-6">
               {room.players.map((player) => (
-                <div key={player.id} className="bg-gray-800 p-3 rounded flex items-center justify-between">
+                <div key={player.id} className="bg-white/10 p-3 rounded-lg flex items-center justify-between border border-white/10">
                   <div>
                     <span className="text-white font-semibold">{player.username}</span>
                     {player.isHost && <span className="text-yellow-400 ml-2 text-xs">[HOST]</span>}
@@ -240,15 +262,24 @@ export default function LobbyPage() {
             <div className="flex gap-2">
               <button
                 onClick={handleReady}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded font-semibold"
+                className="flex-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/30 text-emerald-100 px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
               >
                 Ready
               </button>
 
-              {isHost && allReady && (
+              {isHost && room.players.length < 2 && (
+                <button
+                  onClick={handleEnterFreeDraw}
+                  className="flex-1 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-orange-100 px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
+                >
+                  Free Draw
+                </button>
+              )}
+
+              {isHost && allReady && room.players.length >= 2 && (
                 <button
                   onClick={handleStartGame}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded font-semibold"
+                  className="flex-1 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/30 text-indigo-100 px-4 py-2 rounded-lg font-semibold backdrop-blur-sm transition-colors"
                 >
                   Start Game
                 </button>

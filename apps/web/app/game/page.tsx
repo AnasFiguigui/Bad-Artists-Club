@@ -489,12 +489,16 @@ export default function GamePage() {
           {/* Start Game button for host when game ended */}
           {gameEnded && isHost && (
             <div className="shrink-0 border-t border-gray-700/50 p-2">
-              <button
-                onClick={handleRestartGame}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors text-sm"
-              >
-                Start Game
-              </button>
+              {playerCount >= 2 ? (
+                <button
+                  onClick={handleRestartGame}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition-colors text-sm"
+                >
+                  Start Game
+                </button>
+              ) : (
+                <p className="text-gray-400 text-center text-xs">Need 2+ players to start</p>
+              )}
             </div>
           )}
           {gameEnded && !isHost && (
@@ -554,7 +558,7 @@ export default function GamePage() {
       {/* Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
-          <div className="bg-gray-900 rounded-xl p-6 border border-indigo-500/50 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">Game Settings</h2>
               <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
@@ -565,44 +569,44 @@ export default function GamePage() {
             </div>
             <div className="space-y-3">
               {!gameEnded && (
-                <p className="text-yellow-400 text-xs italic">Settings can only be changed after the game ends.</p>
+                <p className="text-yellow-300 text-xs italic">Settings can only be changed after the game ends.</p>
               )}
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Theme</label>
+                <label className="text-xs text-gray-300 block mb-1">Theme</label>
                 <select
                   value={room.theme}
                   onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
                 >
-                  <option value="lol">League of Legends</option>
-                  <option value="elden-ring">Elden Ring</option>
-                  <option value="dbd">Dead by Daylight</option>
+                  <option value="lol" className="bg-gray-900">League of Legends</option>
+                  <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
+                  <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Rounds</label>
+                <label className="text-xs text-gray-300 block mb-1">Rounds</label>
                 <select
                   value={room.totalRounds}
                   onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
                 >
                   {[3, 5, 8, 10].map((r) => (
-                    <option key={r} value={r}>{r} rounds</option>
+                    <option key={r} value={r} className="bg-gray-900">{r} rounds</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-400 block mb-1">Draw Time</label>
+                <label className="text-xs text-gray-300 block mb-1">Draw Time</label>
                 <select
                   value={room.drawTime}
                   onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
                   disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
                 >
                   {[60, 90, 120].map((t) => (
-                    <option key={t} value={t}>{t} seconds</option>
+                    <option key={t} value={t} className="bg-gray-900">{t} seconds</option>
                   ))}
                 </select>
               </div>
@@ -610,7 +614,7 @@ export default function GamePage() {
             {!gameEnded && (
               <button
                 onClick={() => { handleEndGame(); setShowSettingsModal(false) }}
-                className="w-full mt-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors text-sm"
+                className="w-full mt-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-100 rounded-lg font-bold backdrop-blur-sm transition-colors text-sm"
               >
                 End Game
               </button>
