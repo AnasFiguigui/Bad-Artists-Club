@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { initSocket, waitForSocketConnection } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
@@ -265,12 +265,27 @@ export default function GamePage() {
     }
   }
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (socket && roomId) {
       canvasRef.current?.undo()
       socket.emit('undo', { roomId })
     }
-  }
+  }, [socket, roomId])
+
+  // Compute canDraw early so hooks below can use it (hooks cannot be called after early return)
+  const canDraw = gameEnded || isDrawer
+
+  // Keyboard shortcut: Ctrl+Z for undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        if (canDraw) handleUndo()
+      }
+    }
+    globalThis.addEventListener('keydown', handleKeyDown)
+    return () => globalThis.removeEventListener('keydown', handleKeyDown)
+  }, [canDraw, handleUndo])
 
   const handleReroll = () => {
     if (socket && roomId) {
@@ -326,7 +341,6 @@ export default function GamePage() {
 
   const isHost = room.host === socket?.id
   const playerCount = room.players.length
-  const canDraw = gameEnded || isDrawer
 
   return (
     <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
@@ -352,12 +366,12 @@ export default function GamePage() {
 
       {/* Floating toast notifications */}
       {notification && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-600/80 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-pulse">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-600/80 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-slide-down">
           {notification}
         </div>
       )}
       {cooldown > 0 && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-700/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-pulse">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-700/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down">
           Next turn in {cooldown}...
         </div>
       )}
@@ -511,7 +525,7 @@ export default function GamePage() {
         {/* Center: Canvas + Brush Controls — always visible */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Canvas area */}
-          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 min-h-0">
+          <div className="flex-1 flex items-center justify-center p-2 sm:p-3 min-h-0 animate-fade-in">
             <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }}>
               {roomId && (
                 <Canvas
@@ -527,7 +541,7 @@ export default function GamePage() {
 
           {/* Brush controls bar */}
           {canDraw && (
-            <div className="shrink-0 px-2 sm:px-3 pb-2">
+            <div className="shrink-0 px-2 sm:px-3 pb-2 animate-slide-up">
               <BrushControls
                 onColorChange={(color) => canvasRef.current?.setColor(color)}
                 onSizeChange={(size) => canvasRef.current?.setSize(size)}
@@ -557,8 +571,15 @@ export default function GamePage() {
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowSettingsModal(false)}>
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Game Settings"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowSettingsModal(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowSettingsModal(false) }}
+        >
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">Game Settings</h2>
               <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
@@ -572,8 +593,9 @@ export default function GamePage() {
                 <p className="text-yellow-300 text-xs italic">Settings can only be changed after the game ends.</p>
               )}
               <div>
-                <label className="text-xs text-gray-300 block mb-1">Theme</label>
+                <label htmlFor="settings-theme" className="text-xs text-gray-300 block mb-1">Theme</label>
                 <select
+                  id="settings-theme"
                   value={room.theme}
                   onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
                   disabled={!gameEnded}
@@ -585,8 +607,9 @@ export default function GamePage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-300 block mb-1">Rounds</label>
+                <label htmlFor="settings-rounds" className="text-xs text-gray-300 block mb-1">Rounds</label>
                 <select
+                  id="settings-rounds"
                   value={room.totalRounds}
                   onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
                   disabled={!gameEnded}
@@ -598,8 +621,9 @@ export default function GamePage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-300 block mb-1">Draw Time</label>
+                <label htmlFor="settings-drawtime" className="text-xs text-gray-300 block mb-1">Draw Time</label>
                 <select
+                  id="settings-drawtime"
                   value={room.drawTime}
                   onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
                   disabled={!gameEnded}

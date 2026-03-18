@@ -37,6 +37,7 @@ export interface DrawStroke {
   size: number
   tool: 'brush' | 'eraser' | 'fill'
   points: { x: number; y: number }[]
+  partial?: boolean // true = streaming mid-stroke segment, false/undefined = complete stroke
 }
 
 export interface ChatMessage {

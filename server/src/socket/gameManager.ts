@@ -323,6 +323,7 @@ export class GameManager {
     if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return
     if (typeof stroke.color !== 'string' || stroke.color.length > 20) return
     if (!['brush', 'eraser', 'fill'].includes(stroke.tool)) return
+    if (stroke.partial !== undefined && typeof stroke.partial !== 'boolean') return
     for (const p of stroke.points) {
       if (typeof p.x !== 'number' || typeof p.y !== 'number') return
       if (p.x < 0 || p.x > 1280 || p.y < 0 || p.y > 720) return
@@ -333,7 +334,13 @@ export class GameManager {
     if (room?.state === 'results') {
       if (!room.players.some((p: { id: string }) => p.id === socket.id)) return
 
-      // Store stroke for mid-game joiners (capped)
+      // Partial strokes: relay for real-time sync but don't store
+      if (stroke.partial) {
+        socket.to(stroke.roomId).emit('draw', stroke)
+        return
+      }
+
+      // Store complete strokes for mid-game joiners (capped)
       const freeStrokes = this.canvasStrokes.get(stroke.roomId) || []
       if (freeStrokes.length < 2000) {
         freeStrokes.push(stroke)
@@ -345,14 +352,20 @@ export class GameManager {
     }
     if (!room?.drawer || room.drawer !== socket.id) return
 
-    // Store stroke for mid-game joiners (cap at 2000 strokes per room)
+    // Partial strokes: relay for real-time sync but don't store (saves memory, keeps replay clean)
+    if (stroke.partial) {
+      socket.to(stroke.roomId).emit('draw', stroke)
+      return
+    }
+
+    // Store complete strokes for mid-game joiners (cap at 2000 strokes per room)
     const strokes = this.canvasStrokes.get(stroke.roomId) || []
     if (strokes.length < 2000) {
       strokes.push(stroke)
       this.canvasStrokes.set(stroke.roomId, strokes)
     }
 
-    // BUG FIX: Only broadcast to OTHER players (drawer already sees their own strokes)
+    // Broadcast to other players (drawer already sees own strokes)
     socket.to(stroke.roomId).emit('draw', stroke)
   }
 
