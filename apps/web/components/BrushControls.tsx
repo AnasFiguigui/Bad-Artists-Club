@@ -1,8 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
-type ToolType = 'brush' | 'eraser' | 'fill'
+type ToolType = 'brush' | 'eraser' | 'fill' | 'line' | 'oval' | 'rect' | 'roundedRect' | 'triangle' | 'callout'
+
+const SHAPE_TOOLS: { tool: ToolType; label: string; icon: React.ReactNode }[] = [
+  {
+    tool: 'line', label: 'Line',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><line x1="4" y1="20" x2="20" y2="4" strokeLinecap="round" /></svg>,
+  },
+  {
+    tool: 'oval', label: 'Oval',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><ellipse cx="12" cy="12" rx="9" ry="7" /></svg>,
+  },
+  {
+    tool: 'rect', label: 'Rectangle',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="5" width="18" height="14" /></svg>,
+  },
+  {
+    tool: 'roundedRect', label: 'Rounded Rectangle',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="3" y="5" width="18" height="14" rx="4" /></svg>,
+  },
+  {
+    tool: 'triangle', label: 'Triangle',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 4L3 20h18L12 4z" strokeLinejoin="round" /></svg>,
+  },
+  {
+    tool: 'callout', label: 'Callout',
+    icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M3 5h18v11H14l-4 4v-4H3V5z" strokeLinejoin="round" /></svg>,
+  },
+]
 
 interface BrushControlsProps {
   onColorChange: (color: string) => void
@@ -34,6 +61,7 @@ export function BrushControls({
   const [activeTool, setActiveTool] = useState<ToolType>('brush')
   const [activeColor, setActiveColor] = useState('#000000')
   const [brushSize, setBrushSize] = useState(5)
+  const colorPickerRef = useRef<HTMLInputElement>(null)
 
   if (!isDrawer) return null
 
@@ -105,11 +133,24 @@ export function BrushControls({
       {/* Divider */}
       <div className="w-px h-8 bg-gray-700 hidden sm:block" />
 
-      {/* Selected color indicator */}
-      <div
-        className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-gray-500 shadow-inner shrink-0"
-        style={{ backgroundColor: activeColor }}
-      />
+      {/* Selected color indicator — clickable to open color picker */}
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-gray-500 shadow-inner cursor-pointer hover:scale-110 transition-transform"
+          style={{ backgroundColor: activeColor }}
+          title="Pick custom color"
+          onClick={() => colorPickerRef.current?.click()}
+        />
+        <input
+          ref={colorPickerRef}
+          type="color"
+          value={activeColor}
+          onChange={(e) => handleColorChange(e.target.value)}
+          className="absolute inset-0 w-0 h-0 opacity-0 pointer-events-none"
+          tabIndex={-1}
+        />
+      </div>
 
       {/* Color palette */}
       <div className="grid grid-cols-11 gap-0.5">
@@ -152,6 +193,28 @@ export function BrushControls({
             <svg width="24" height="24" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r={radius} fill={brushSize === size ? 'white' : '#9ca3af'} />
             </svg>
+          </button>
+        ))}
+      </div>
+
+      {/* Divider */}
+      <div className="w-px h-8 bg-gray-700 hidden sm:block" />
+
+      {/* Shape tools */}
+      <div className="flex items-center gap-1">
+        {SHAPE_TOOLS.map(({ tool, label, icon }) => (
+          <button
+            key={tool}
+            onClick={() => handleToolChange(tool)}
+            title={label}
+            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+              activeTool === tool
+                ? 'text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+            style={activeTool === tool ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
+          >
+            {icon}
           </button>
         ))}
       </div>

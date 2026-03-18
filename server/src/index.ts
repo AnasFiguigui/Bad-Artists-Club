@@ -2,8 +2,13 @@ import express from 'express'
 import { createServer } from 'node:http'
 import { Server, Socket } from 'socket.io'
 import cors from 'cors'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { RoomManager } from './socket/roomManager'
 import { GameManager } from './socket/gameManager'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const app = express()
 const httpServer = createServer(app)
@@ -20,6 +25,9 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || /^http:\/\/localhost:\d+$/,
 }))
 app.use(express.json())
+
+// Serve static files (character images)
+app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')))
 
 const roomManager = new RoomManager()
 const gameManager = new GameManager(io, roomManager)

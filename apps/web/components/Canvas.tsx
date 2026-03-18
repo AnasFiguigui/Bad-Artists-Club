@@ -3,7 +3,9 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle, useCallback } from 'react'
 import { DrawStroke } from '@/lib/types'
 
-type ToolType = 'brush' | 'eraser' | 'fill'
+type ToolType = 'brush' | 'eraser' | 'fill' | 'line' | 'oval' | 'rect' | 'roundedRect' | 'triangle' | 'callout'
+
+const SHAPE_TOOLS: ReadonlySet<string> = new Set(['line', 'oval', 'rect', 'roundedRect', 'triangle', 'callout'])
 
 interface CanvasProps {
   isDrawer: boolean
@@ -58,6 +60,76 @@ function fillPixels(
   }
 }
 
+/** Draw a shape on the given context using two bounding points */
+function drawShapeOnCtx(
+  ctx: CanvasRenderingContext2D,
+  tool: string,
+  p1: { x: number; y: number },
+  p2: { x: number; y: number },
+  color: string,
+  size: number,
+) {
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = size
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  const x = Math.min(p1.x, p2.x)
+  const y = Math.min(p1.y, p2.y)
+  const w = Math.abs(p2.x - p1.x)
+  const h = Math.abs(p2.y - p1.y)
+
+  ctx.beginPath()
+  switch (tool) {
+    case 'line':
+      ctx.moveTo(p1.x, p1.y)
+      ctx.lineTo(p2.x, p2.y)
+      break
+    case 'oval':
+      ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2)
+      break
+    case 'rect':
+      ctx.rect(x, y, w, h)
+      break
+    case 'roundedRect': {
+      const r = Math.min(20, w / 4, h / 4)
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + w - r, y)
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+      ctx.lineTo(x + w, y + h - r)
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+      ctx.lineTo(x + r, y + h)
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+      break
+    }
+    case 'triangle':
+      ctx.moveTo(x + w / 2, y)
+      ctx.lineTo(x + w, y + h)
+      ctx.lineTo(x, y + h)
+      ctx.closePath()
+      break
+    case 'callout': {
+      const tail = Math.min(h * 0.3, 30)
+      const bodyH = h - tail
+      ctx.moveTo(x, y)
+      ctx.lineTo(x + w, y)
+      ctx.lineTo(x + w, y + bodyH)
+      ctx.lineTo(x + w * 0.35, y + bodyH)
+      ctx.lineTo(x + w * 0.15, y + h)
+      ctx.lineTo(x + w * 0.25, y + bodyH)
+      ctx.lineTo(x, y + bodyH)
+      ctx.closePath()
+      break
+    }
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
   function Canvas({ isDrawer, onDraw, roomId, playerId }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -69,6 +141,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
     const pointsRef = useRef<{ x: number; y: number }[]>([])
     const historyRef = useRef<ImageData[]>([])
 
+    // Shape tool refs
+    const shapeStartRef = useRef<{ x: number; y: number } | null>(null)
+    const shapeSnapshotRef = useRef<ImageData | null>(null)
     // Streaming refs
     const lastEmitIndexRef = useRef(0)
     const lastEmitTimeRef = useRef(0)
@@ -199,43 +274,60 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
       ctx.restore()
     }, [])
 
+    // Render a shape or freeform stroke from remote/replay
+    const renderStrokeContent = useCallback((ctx: CanvasRenderingContext2D, stroke: DrawStroke) => {
+      if (stroke.tool === 'fill' && stroke.points.length >= 1) {
+        floodFill(stroke.points[0].x, stroke.points[0].y, stroke.color)
+        return
+      }
+      if (SHAPE_TOOLS.has(stroke.tool) && stroke.points.length >= 2) {
+        drawShapeOnCtx(ctx, stroke.tool, stroke.points[0], stroke.points[1], stroke.color, stroke.size)
+        return
+      }
+      if (stroke.points.length === 1) {
+        renderDot(ctx, stroke.points[0].x, stroke.points[0].y, stroke.size, stroke.color, stroke.tool)
+        return
+      }
+      renderSegment(ctx, stroke)
+    }, [floodFill, renderSegment, renderDot])
+
+    // Handle partial streaming stroke from remote drawer
+    const handlePartialStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: DrawStroke) => {
+      if (!remoteStreamActiveRef.current) {
+        saveSnapshot()
+        remoteStreamActiveRef.current = true
+      }
+      if (SHAPE_TOOLS.has(stroke.tool) && stroke.points.length >= 2) {
+        if (canvasRef.current && shapeSnapshotRef.current) {
+          ctx.putImageData(shapeSnapshotRef.current, 0, 0)
+        }
+        drawShapeOnCtx(ctx, stroke.tool, stroke.points[0], stroke.points.at(-1)!, stroke.color, stroke.size)
+      } else {
+        renderSegment(ctx, stroke)
+      }
+    }, [saveSnapshot, renderSegment])
+
     // Draw a stroke on the canvas (used for remote strokes and replay)
     const drawStrokeOnCanvas = useCallback((stroke: DrawStroke) => {
       const ctx = contextRef.current
       if (!ctx) return
 
-      // Partial (streaming) stroke from remote drawer
       if (stroke.partial) {
-        if (!remoteStreamActiveRef.current) {
-          saveSnapshot()
-          remoteStreamActiveRef.current = true
-        }
-        renderSegment(ctx, stroke)
+        handlePartialStroke(ctx, stroke)
         return
       }
 
-      // Complete stroke received
       if (remoteStreamActiveRef.current) {
-        // Already rendered via partials, just mark stream as done
         remoteStreamActiveRef.current = false
+        if (SHAPE_TOOLS.has(stroke.tool) && stroke.points.length >= 2) {
+          drawShapeOnCtx(ctx, stroke.tool, stroke.points[0], stroke.points.at(-1)!, stroke.color, stroke.size)
+        }
         return
       }
 
-      // Full stroke (replay for mid-game joiners, single-click dot, fill)
       saveSnapshot()
-
-      if (stroke.tool === 'fill' && stroke.points.length >= 1) {
-        floodFill(stroke.points[0].x, stroke.points[0].y, stroke.color)
-        return
-      }
-
-      if (stroke.points.length === 1) {
-        renderDot(ctx, stroke.points[0].x, stroke.points[0].y, stroke.size, stroke.color, stroke.tool)
-        return
-      }
-
-      renderSegment(ctx, stroke)
-    }, [saveSnapshot, floodFill, renderSegment, renderDot])
+      renderStrokeContent(ctx, stroke)
+    }, [saveSnapshot, handlePartialStroke, renderStrokeContent])
 
     const clearCanvas = useCallback(() => {
       if (!contextRef.current || !canvasRef.current) return
@@ -261,7 +353,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
       }
 
       const tool = currentToolRef.current
-      if (tool === 'fill') {
+      if (tool === 'fill' || SHAPE_TOOLS.has(tool)) {
         canvas.style.cursor = 'crosshair'
         return
       }
@@ -398,6 +490,68 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         return
       }
 
+      // Shape tools: click-drag-stretch
+      if (SHAPE_TOOLS.has(currentToolRef.current)) {
+        saveSnapshot()
+        isDrawingRef.current = true
+        shapeStartRef.current = { x, y }
+        const canvas = canvasRef.current!
+        shapeSnapshotRef.current = contextRef.current.getImageData(0, 0, canvas.width, canvas.height)
+
+        const handleShapeMove = (ev: MouseEvent) => {
+          if (!isDrawingRef.current || !contextRef.current || !shapeStartRef.current || !shapeSnapshotRef.current) return
+          const coords = getScaledCoordsFromNative(ev)
+          // Restore snapshot and draw preview
+          contextRef.current.putImageData(shapeSnapshotRef.current, 0, 0)
+          drawShapeOnCtx(contextRef.current, currentToolRef.current, shapeStartRef.current, coords, currentColorRef.current, currentSizeRef.current)
+
+          // Emit partial for live sync
+          const now = performance.now()
+          if (now - lastEmitTimeRef.current >= STREAM_THROTTLE_MS) {
+            onDrawRef.current({
+              roomId: roomIdRef.current,
+              userId: playerIdRef.current,
+              color: currentColorRef.current,
+              size: currentSizeRef.current,
+              tool: currentToolRef.current,
+              points: [shapeStartRef.current, coords],
+              partial: true,
+            })
+            lastEmitTimeRef.current = now
+          }
+        }
+
+        const handleShapeUp = (ev: MouseEvent) => {
+          if (!isDrawingRef.current || !shapeStartRef.current || !shapeSnapshotRef.current) return
+          isDrawingRef.current = false
+          const coords = getScaledCoordsFromNative(ev)
+          // Restore and draw final shape
+          contextRef.current!.putImageData(shapeSnapshotRef.current, 0, 0)
+          drawShapeOnCtx(contextRef.current!, currentToolRef.current, shapeStartRef.current, coords, currentColorRef.current, currentSizeRef.current)
+
+          // Emit complete
+          onDrawRef.current({
+            roomId: roomIdRef.current,
+            userId: playerIdRef.current,
+            color: currentColorRef.current,
+            size: currentSizeRef.current,
+            tool: currentToolRef.current,
+            points: [shapeStartRef.current, coords],
+          })
+
+          shapeStartRef.current = null
+          shapeSnapshotRef.current = null
+          globalThis.removeEventListener('mousemove', handleShapeMove)
+          globalThis.removeEventListener('mouseup', handleShapeUp)
+          windowHandlersRef.current = { move: null, up: null }
+        }
+
+        windowHandlersRef.current = { move: handleShapeMove, up: handleShapeUp }
+        globalThis.addEventListener('mousemove', handleShapeMove)
+        globalThis.addEventListener('mouseup', handleShapeUp)
+        return
+      }
+
       saveSnapshot()
       isDrawingRef.current = true
       pointsRef.current = [{ x, y }]
@@ -482,6 +636,16 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         return
       }
 
+      // Shape tools via touch
+      if (SHAPE_TOOLS.has(currentToolRef.current)) {
+        saveSnapshot()
+        isDrawingRef.current = true
+        shapeStartRef.current = { x, y }
+        const canvas = canvasRef.current!
+        shapeSnapshotRef.current = contextRef.current.getImageData(0, 0, canvas.width, canvas.height)
+        return
+      }
+
       saveSnapshot()
       isDrawingRef.current = true
       pointsRef.current = [{ x, y }]
@@ -501,6 +665,13 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
 
       const { x, y } = getTouchCoords(e)
 
+      // Shape preview via touch
+      if (SHAPE_TOOLS.has(currentToolRef.current) && shapeStartRef.current && shapeSnapshotRef.current) {
+        contextRef.current.putImageData(shapeSnapshotRef.current, 0, 0)
+        drawShapeOnCtx(contextRef.current, currentToolRef.current, shapeStartRef.current, { x, y }, currentColorRef.current, currentSizeRef.current)
+        return
+      }
+
       contextRef.current.lineTo(x, y)
       contextRef.current.stroke()
       contextRef.current.beginPath()
@@ -518,6 +689,24 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
       e.preventDefault()
       if (!isDrawingRef.current) return
       isDrawingRef.current = false
+
+      // Finalize shape via touch
+      if (SHAPE_TOOLS.has(currentToolRef.current) && shapeStartRef.current && shapeSnapshotRef.current) {
+        const { x, y } = getTouchCoords(e)
+        contextRef.current!.putImageData(shapeSnapshotRef.current, 0, 0)
+        drawShapeOnCtx(contextRef.current!, currentToolRef.current, shapeStartRef.current, { x, y }, currentColorRef.current, currentSizeRef.current)
+        onDrawRef.current({
+          roomId: roomIdRef.current,
+          userId: playerIdRef.current,
+          color: currentColorRef.current,
+          size: currentSizeRef.current,
+          tool: currentToolRef.current,
+          points: [shapeStartRef.current, { x, y }],
+        })
+        shapeStartRef.current = null
+        shapeSnapshotRef.current = null
+        return
+      }
 
       if (pointsRef.current.length === 1) {
         const pt = pointsRef.current[0]

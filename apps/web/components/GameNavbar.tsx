@@ -97,7 +97,7 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
         <div className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0">
           <img src="/images/logo-bac-txt-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
         </div>
-        <div className="text-xs text-gray-400 hidden md:block">
+        <div className="text-xs hidden md:block font-medium" style={{ color: themeColor || '#9ca3af' }}>
           R{round}/{totalRounds} · T{currentTurn}/{totalTurns}
         </div>
       </div>

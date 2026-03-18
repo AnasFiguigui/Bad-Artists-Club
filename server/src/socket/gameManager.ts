@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 interface CharacterData {
   name: string
   hintLength: number
+  altName?: string
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -42,6 +43,8 @@ export class GameManager {
   // Per-room draw event counter for flood protection
   private readonly roomDrawCounts: Map<string, { count: number; resetTime: number }> = new Map()
   private readonly customWordTimers: Map<string, NodeJS.Timeout> = new Map()
+  // Alt answers for characters with alternate names (e.g. Executioner = Pyramid Head)
+  private readonly altAnswers: Map<string, string> = new Map()
   private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
@@ -276,6 +279,12 @@ export class GameManager {
     console.log(`[Game] Character: "${character.name}", hint: "${hint}"`)
 
     this.roomManager.setAnswer(roomId, character.name, hint)
+    // Store alt answer if available
+    if (character.altName) {
+      this.altAnswers.set(roomId, character.altName)
+    } else {
+      this.altAnswers.delete(roomId)
+    }
     this.roomManager.syncPlayerScores(roomId)
 
     const updatedRoom = this.roomManager.getRoom(roomId)!
@@ -375,7 +384,7 @@ export class GameManager {
     if (!Array.isArray(stroke.points) || stroke.points.length > maxPoints) return false
     if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return false
     if (typeof stroke.color !== 'string' || stroke.color.length > 20) return false
-    if (!['brush', 'eraser', 'fill'].includes(stroke.tool)) return false
+    if (!['brush', 'eraser', 'fill', 'line', 'oval', 'rect', 'roundedRect', 'triangle', 'callout'].includes(stroke.tool)) return false
     if (stroke.partial !== undefined && typeof stroke.partial !== 'boolean') return false
     for (const p of stroke.points) {
       if (typeof p.x !== 'number' || typeof p.y !== 'number') return false
@@ -525,8 +534,11 @@ export class GameManager {
 
     const guess = message.trim().toLowerCase()
     const answer = room.answer?.toLowerCase() || ''
-    const isCorrect = answer !== '' && guess === answer
-    const isClose = !isCorrect && answer !== '' && levenshteinDistance(guess, answer) <= 2
+    // Strip optional "the " prefix from guess for DBD-style names
+    const normalizedGuess = guess.startsWith('the ') ? guess.slice(4) : guess
+    const altAnswer = this.altAnswers.get(roomId)?.toLowerCase() || ''
+    const isCorrect = answer !== '' && (normalizedGuess === answer || (altAnswer !== '' && normalizedGuess === altAnswer))
+    const isClose = !isCorrect && answer !== '' && (levenshteinDistance(normalizedGuess, answer) <= 2 || (altAnswer !== '' && levenshteinDistance(normalizedGuess, altAnswer) <= 2))
 
     if (isCorrect) return this.handleCorrectGuess(socket, roomId, room, player)
     if (isClose) return this.handleCloseGuess(socket, room, player, message)
@@ -570,6 +582,7 @@ export class GameManager {
     this.canvasStrokes.delete(roomId)
     this.cooldownRooms.delete(roomId)
     this.roomDrawCounts.delete(roomId)
+    this.altAnswers.delete(roomId)
     const cwTimer = this.customWordTimers.get(roomId)
     if (cwTimer) clearInterval(cwTimer)
     this.customWordTimers.delete(roomId)
@@ -618,6 +631,11 @@ export class GameManager {
     const character = this.selectRandomCharacter(room.theme)
     const hint = this.generateHint(character.name)
     this.roomManager.setAnswer(roomId, character.name, hint)
+    if (character.altName) {
+      this.altAnswers.set(roomId, character.altName)
+    } else {
+      this.altAnswers.delete(roomId)
+    }
 
     console.log(`[Game] Reroll in ${roomId}: new character "${character.name}"`)
 

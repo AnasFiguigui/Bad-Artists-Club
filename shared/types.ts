@@ -31,7 +31,7 @@ export interface DrawStroke {
   userId: string
   color: string
   size: number
-  tool: 'brush' | 'eraser' | 'fill'
+  tool: 'brush' | 'eraser' | 'fill' | 'line' | 'oval' | 'rect' | 'roundedRect' | 'triangle' | 'callout'
   points: { x: number; y: number }[]
   partial?: boolean // true = streaming mid-stroke segment, false/undefined = complete stroke
 }
@@ -57,4 +57,5 @@ export interface GameConfig {
 export interface Character {
   name: string
   hintLength: number
+  altName?: string
 }

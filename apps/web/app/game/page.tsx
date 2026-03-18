@@ -494,6 +494,8 @@ export default function GamePage() {
               currentPlayerId={socket?.id || ''}
               hostId={room.host}
               drawerId={room.drawer}
+              gameState={room.state}
+              themeColor={themeColors.primary}
               onKick={isHost ? handleKickPlayer : undefined}
             />
           </div>
@@ -501,10 +503,22 @@ export default function GamePage() {
           {/* Drawer tools: Reference image + action buttons (only when drawing, not in free draw) */}
           {isDrawer && !gameEnded && (
             <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
-              {/* Reference image placeholder (hidden for custom theme) */}
+              {/* Reference image (hidden for custom theme) */}
               {showReference && room.theme !== 'custom' && (
                 <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
-                  <div className="text-center text-gray-500 p-2">
+                  {room.theme === 'dbd' && room.answer ? (
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/images/dbd/${room.answer.replace(/ /g, '_')}.webp`}
+                      alt="Reference"
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        // Fallback to placeholder if image unavailable
+                        e.currentTarget.style.display = 'none'
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                      }}
+                    />
+                  ) : null}
+                  <div className={`text-center text-gray-500 p-2 ${room.theme === 'dbd' && room.answer ? 'hidden' : ''}`}>
                     <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                     </svg>

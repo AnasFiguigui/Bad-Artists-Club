@@ -8,6 +8,8 @@ interface PlayerLeaderboardProps {
   currentPlayerId: string
   hostId: string
   drawerId?: string
+  gameState?: 'lobby' | 'playing' | 'results'
+  themeColor?: string
   onKick?: (targetId: string) => void
 }
 
@@ -17,10 +19,35 @@ export function PlayerLeaderboard({
   currentPlayerId,
   hostId,
   drawerId,
+  gameState,
+  themeColor,
   onKick,
 }: Readonly<PlayerLeaderboardProps>) {
   const sorted = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
   const isHost = currentPlayerId === hostId
+  const anyScores = sorted.some((p) => (scores[p.id] || 0) > 0)
+
+  // Compute score ranks: players with the same score share the same rank
+  const scoreRanks = new Map<string, number>()
+  let rank = 0
+  let lastScore = -1
+  for (const p of sorted) {
+    const s = scores[p.id] || 0
+    if (s !== lastScore) {
+      rank++
+      lastScore = s
+    }
+    scoreRanks.set(p.id, rank)
+  }
+
+  const getScoreColor = (playerId: string): string => {
+    if (!anyScores) return '#ffffff'
+    const r = scoreRanks.get(playerId) || 999
+    if (r === 1) return '#fbbf24' // gold
+    if (r === 2) return '#c0c0c0' // silver
+    if (r === 3) return '#cd7f32' // bronze
+    return '#ffffff'
+  }
 
   return (
     <div className="bg-gray-900/80 rounded-lg border border-gray-700/50 flex flex-col overflow-hidden">
@@ -30,22 +57,23 @@ export function PlayerLeaderboard({
       <div className="flex-1 overflow-y-auto">
         {sorted.map((player, idx) => {
           const isMe = player.id === currentPlayerId
-          const isDrawing = player.id === drawerId
-          const medal = idx === 0 && (scores[player.id] || 0) > 0 ? '👑 ' : ''
+          const isDrawing = player.id === drawerId && gameState === 'playing'
+          const medal = anyScores && (scoreRanks.get(player.id) || 999) === 1 ? '👑 ' : ''
 
           return (
             <div
               key={player.id}
               className={`flex items-center gap-2 px-3 py-2 border-b border-gray-800/50 last:border-0 ${
-                isMe ? 'bg-indigo-900/30' : ''
-              } ${isDrawing ? 'bg-orange-900/20' : ''}`}
+                isDrawing ? 'bg-orange-900/20' : ''
+              }`}
+              style={isMe ? { backgroundColor: `${themeColor || '#4f46e5'}30` } : undefined}
             >
               <span className="text-gray-500 text-xs font-bold w-5 text-right">
                 #{idx + 1}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className={`text-sm font-medium truncate ${isMe ? 'text-indigo-300' : 'text-white'}`}>
+                  <span className="text-sm font-medium truncate" style={isMe ? { color: themeColor || '#818cf8' } : { color: '#ffffff' }}>
                     {medal}{player.username}
                   </span>
                   {player.isHost && (
@@ -56,7 +84,7 @@ export function PlayerLeaderboard({
                   )}
                 </div>
               </div>
-              <span className="text-emerald-400 font-bold text-sm tabular-nums">
+              <span className="font-bold text-sm tabular-nums" style={{ color: getScoreColor(player.id) }}>
                 {scores[player.id] || 0}
               </span>
               {isHost && !isMe && onKick && (
