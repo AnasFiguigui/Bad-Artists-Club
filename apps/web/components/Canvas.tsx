@@ -24,6 +24,40 @@ export interface CanvasHandle {
 const MAX_HISTORY = 30
 const STREAM_THROTTLE_MS = 30
 
+function fillPixels(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  start: { x: number; y: number },
+  fillRgb: { r: number; g: number; b: number },
+  matchStart: (idx: number) => boolean,
+) {
+  const stack: [number, number][] = [[start.x, start.y]]
+  const visited = new Uint8Array(width * height)
+
+  while (stack.length > 0) {
+    const point = stack.pop()
+    if (!point) break
+    const [x, y] = point
+    const pixelIdx = y * width + x
+    if (visited[pixelIdx]) continue
+    visited[pixelIdx] = 1
+
+    const idx = pixelIdx * 4
+    if (!matchStart(idx)) continue
+
+    data[idx] = fillRgb.r
+    data[idx + 1] = fillRgb.g
+    data[idx + 2] = fillRgb.b
+    data[idx + 3] = 255
+
+    if (x > 0) stack.push([x - 1, y])
+    if (x < width - 1) stack.push([x + 1, y])
+    if (y > 0) stack.push([x, y - 1])
+    if (y < height - 1) stack.push([x, y + 1])
+  }
+}
+
 export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
   function Canvas({ isDrawer, onDraw, roomId, playerId }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -134,31 +168,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         Math.abs(data[idx + 2] - sb) <= tolerance &&
         Math.abs(data[idx + 3] - sa) <= tolerance
 
-      const stack: [number, number][] = [[sx, sy]]
-      const visited = new Uint8Array(width * height)
-
-      while (stack.length > 0) {
-        const point = stack.pop()
-        if (!point) break
-        const [x, y] = point
-        const pixelIdx = y * width + x
-        if (visited[pixelIdx]) continue
-        visited[pixelIdx] = 1
-
-        const idx = pixelIdx * 4
-        if (!matchStart(idx)) continue
-
-        data[idx] = fr
-        data[idx + 1] = fg
-        data[idx + 2] = fb
-        data[idx + 3] = 255
-
-        if (x > 0) stack.push([x - 1, y])
-        if (x < width - 1) stack.push([x + 1, y])
-        if (y > 0) stack.push([x, y - 1])
-        if (y < height - 1) stack.push([x, y + 1])
-      }
-
+      fillPixels(data, width, height, { x: sx, y: sy }, { r: fr, g: fg, b: fb }, matchStart)
       ctx.putImageData(imageData, 0, 0)
     }, [])
 

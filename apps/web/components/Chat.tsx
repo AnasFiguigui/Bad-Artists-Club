@@ -1,19 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react'
 import { ChatMessage as ChatMessageType } from '@/lib/types'
 
 interface ChatProps {
   isDrawer: boolean
+  isCooldown?: boolean
   messages: ChatMessageType[]
   onSendMessage: (message: string) => void
   roomId: string
 }
 
-export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
+export interface ChatHandle {
+  clearInput: () => void
+}
+
+export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, isCooldown, messages, onSendMessage, roomId }, ref) {
   const [input, setInput] = useState('')
   const [lastGuessTime, setLastGuessTime] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    clearInput: () => setInput(''),
+  }), [])
 
   // Auto-scroll to newest message
   useEffect(() => {
@@ -37,6 +46,8 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
       handleSend()
     }
   }
+
+  const chatDisabled = isDrawer || isCooldown
 
   return (
     <div className="flex flex-col h-full">
@@ -81,7 +92,13 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      {!isDrawer ? (
+      {chatDisabled ? (
+        <div className="p-2 border-t border-gray-700/50">
+          <p className="text-yellow-400 text-xs italic text-center">
+            {isCooldown ? 'Chat paused — next turn starting...' : 'You are drawing — cannot chat'}
+          </p>
+        </div>
+      ) : (
         <div className="p-2 border-t border-gray-700/50">
           <div className="flex gap-1.5">
             <input
@@ -102,11 +119,7 @@ export function Chat({ isDrawer, messages, onSendMessage, roomId }: ChatProps) {
             </button>
           </div>
         </div>
-      ) : (
-        <div className="p-2 border-t border-gray-700/50">
-          <p className="text-yellow-400 text-xs italic text-center">You are drawing — cannot chat</p>
-        </div>
       )}
     </div>
   )
-}
+})

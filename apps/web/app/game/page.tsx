@@ -6,10 +6,11 @@ import { initSocket, waitForSocketConnection } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room, ChatMessage as ChatMessageType, DrawStroke } from '@/lib/types'
 import { Canvas, CanvasHandle } from '@/components/Canvas'
-import { Chat } from '@/components/Chat'
+import { Chat, ChatHandle } from '@/components/Chat'
 import { GameNavbar } from '@/components/GameNavbar'
 import { PlayerLeaderboard } from '@/components/PlayerLeaderboard'
 import { BrushControls } from '@/components/BrushControls'
+import { getThemeConfig } from '@/lib/themeConfig'
 
 export default function GamePage() {
   const router = useRouter()
@@ -30,6 +31,25 @@ export default function GamePage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
+  const chatRef = useRef<ChatHandle>(null)
+  const [brushKey, setBrushKey] = useState(0)
+
+  const updateRoomHost = useCallback((newHostId: string) => {
+    setRoom((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        host: newHostId,
+        players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
+      }
+    })
+  }, [])
+
+  const replayStrokes = useCallback((strokes: DrawStroke[]) => {
+    for (const stroke of strokes) {
+      canvasRef.current?.drawStroke(stroke)
+    }
+  }, [])
 
   useEffect(() => {
     if (!username || !roomId) {
@@ -54,6 +74,10 @@ export default function GamePage() {
       setIsDrawer(updatedRoom.drawer === sock.id)
       setMessages([])
       setRoundAnswer(null)
+      setCooldown(0)
+      // Reset brush controls and chat input for new round
+      setBrushKey((k) => k + 1)
+      chatRef.current?.clearInput()
       // Clear canvas for new round
       canvasRef.current?.clear()
       roomLoaded = true
@@ -143,14 +167,7 @@ export default function GamePage() {
     })
 
     sock.on('host-changed', ({ newHostId, newHostUsername }: { newHostId: string; newHostUsername: string }) => {
-      setRoom((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          host: newHostId,
-          players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
-        }
-      })
+      updateRoomHost(newHostId)
       setNotification(`${newHostUsername} is now the host`)
       setTimeout(() => setNotification(null), 3000)
     })
@@ -162,30 +179,32 @@ export default function GamePage() {
     // --- Request current game state (handles race condition) ---
     // The server may have emitted round-start before this page mounted.
     // request-game-state lets us recover the current round data.
+    const handleGameStateResponse = (
+      sock: ReturnType<typeof initSocket>,
+      response: { success: boolean; room: (Room & { canvasStrokes?: DrawStroke[] }) | null },
+    ) => {
+      if (response.success && response.room && !roomLoaded) {
+        console.log('[Game] Got game state from request-game-state')
+        const { canvasStrokes, ...roomData } = response.room
+        setRoom(roomData)
+        gameStore.setState({ room: roomData })
+        setIsDrawer(roomData.drawer === sock.id)
+        if (roomData.state === 'results') {
+          setGameEnded(true)
+        }
+        if (canvasStrokes && canvasStrokes.length > 0) {
+          setTimeout(() => replayStrokes(canvasStrokes), 100)
+        }
+        roomLoaded = true
+        clearTimeout(roundTimeout)
+      }
+    }
+
     const requestState = async () => {
       try {
         await waitForSocketConnection(sock)
         sock.emit('request-game-state', { roomId }, (response: { success: boolean; room: (Room & { canvasStrokes?: DrawStroke[] }) | null }) => {
-          if (response.success && response.room && !roomLoaded) {
-            console.log('[Game] Got game state from request-game-state')
-            const { canvasStrokes, ...roomData } = response.room
-            setRoom(roomData)
-            gameStore.setState({ room: roomData })
-            setIsDrawer(roomData.drawer === sock.id)
-            if (roomData.state === 'results') {
-              setGameEnded(true)
-            }
-            // Replay existing canvas strokes for mid-game joiners
-            if (canvasStrokes && canvasStrokes.length > 0) {
-              setTimeout(() => {
-                for (const stroke of canvasStrokes) {
-                  canvasRef.current?.drawStroke(stroke)
-                }
-              }, 100)
-            }
-            roomLoaded = true
-            clearTimeout(roundTimeout)
-          }
+          handleGameStateResponse(sock, response)
         })
       } catch (err) {
         console.error('[Game] Failed to request game state:', err)
@@ -240,13 +259,6 @@ export default function GamePage() {
     }
   }
 
-  const handleLeaveGame = () => {
-    if (confirm('Leave the game?')) {
-      if (socket) socket.emit('leave-room')
-      router.push('/')
-    }
-  }
-
   const handleRestartGame = () => {
     if (socket && roomId) {
       socket.emit('restart-game', { roomId }, (response: { success: boolean; error?: string }) => {
@@ -273,7 +285,8 @@ export default function GamePage() {
   }, [socket, roomId])
 
   // Compute canDraw early so hooks below can use it (hooks cannot be called after early return)
-  const canDraw = gameEnded || isDrawer
+  const isCooldown = cooldown > 0
+  const canDraw = gameEnded || (isDrawer && !isCooldown)
 
   // Keyboard shortcut: Ctrl+Z for undo
   useEffect(() => {
@@ -341,9 +354,17 @@ export default function GamePage() {
 
   const isHost = room.host === socket?.id
   const playerCount = room.players.length
+  const themeConfig = getThemeConfig(room.theme)
+  const themeColors = themeConfig.colors
+
+  const getTimerColor = () => {
+    if (timeRemaining > room.drawTime * 0.5) return themeColors.primary
+    if (timeRemaining > room.drawTime * 0.25) return '#eab308'
+    return '#ef4444'
+  }
 
   return (
-    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden" style={{ '--theme-primary': themeColors.primary, '--theme-border': themeColors.border, '--theme-bg': themeColors.bg } as React.CSSProperties}>
       {/* Navbar */}
       <GameNavbar
         roomId={roomId || ''}
@@ -371,7 +392,7 @@ export default function GamePage() {
         </div>
       )}
       {cooldown > 0 && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-700/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}e6` }}>
           Next turn in {cooldown}...
         </div>
       )}
@@ -388,7 +409,7 @@ export default function GamePage() {
                 : 'text-gray-500 hover:text-gray-300'
             }`}
           >
-            {tab === 'canvas' ? '🎨 Draw' : tab === 'players' ? '👥 Players' : '💬 Chat'}
+            {{ canvas: '🎨 Draw', players: '👥 Players', chat: '💬 Chat' }[tab]}
           </button>
         ))}
       </div>
@@ -398,7 +419,7 @@ export default function GamePage() {
         {/* Left sidebar: Players + Round info + Drawer tools — hidden on mobile unless "players" tab */}
         <div className={`md:w-56 shrink-0 flex flex-col md:border-r border-gray-800 bg-gray-900/50 ${
           mobilePanel === 'players' ? 'flex' : 'hidden'
-        } md:flex`}>
+        } md:flex`} style={{ borderColor: themeColors.border }}>
           {/* Round info */}
           {!gameEnded && (
           <div className="px-3 py-2 border-b border-gray-700/50 shrink-0">
@@ -412,18 +433,15 @@ export default function GamePage() {
             </div>
             <div className="mt-2 w-full bg-gray-800 rounded-full h-1.5">
               <div
-                className={`h-1.5 rounded-full transition-all ${
-                  timeRemaining > room.drawTime * 0.5
-                    ? 'bg-emerald-500'
-                    : timeRemaining > room.drawTime * 0.25
-                    ? 'bg-yellow-500'
-                    : 'bg-red-500'
-                }`}
-                style={{ width: `${room.drawTime > 0 ? (timeRemaining / room.drawTime) * 100 : 0}%` }}
+                className="h-1.5 rounded-full transition-all"
+                style={{
+                  width: `${room.drawTime > 0 ? (timeRemaining / room.drawTime) * 100 : 0}%`,
+                  backgroundColor: getTimerColor(),
+                }}
               />
             </div>
             <p className="text-xs text-center mt-1">
-              <span className={`font-semibold ${isDrawer ? 'text-orange-400' : 'text-blue-400'}`}>
+              <span className="font-semibold" style={{ color: isDrawer ? themeColors.primary : themeColors.secondary || '#60a5fa' }}>
                 {isDrawer ? '✎ Drawing' : '👀 Guessing'}
               </span>
             </p>
@@ -447,7 +465,7 @@ export default function GamePage() {
             <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
               {/* Reference image placeholder */}
               {showReference && (
-                <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: '9/16' }}>
+                <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
                   <div className="text-center text-gray-500 p-2">
                     <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
@@ -543,6 +561,7 @@ export default function GamePage() {
           {canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2 animate-slide-up">
               <BrushControls
+                key={brushKey}
                 onColorChange={(color) => canvasRef.current?.setColor(color)}
                 onSizeChange={(size) => canvasRef.current?.setSize(size)}
                 onToolChange={(tool) => canvasRef.current?.setTool(tool)}
@@ -557,10 +576,12 @@ export default function GamePage() {
         {/* Right sidebar: Chat — hidden on mobile unless "chat" tab */}
         <div className={`md:w-72 shrink-0 md:border-l border-gray-800 bg-gray-900/50 ${
           mobilePanel === 'chat' ? 'flex' : 'hidden'
-        } md:flex`}>
+        } md:flex`} style={{ borderColor: themeColors.border }}>
           {roomId && (
             <Chat
+              ref={chatRef}
               isDrawer={gameEnded ? false : isDrawer}
+              isCooldown={isCooldown && !gameEnded}
               messages={messages}
               onSendMessage={handleSendMessage}
               roomId={roomId}
@@ -571,15 +592,12 @@ export default function GamePage() {
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
+        <dialog
+          open
           aria-label="Game Settings"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setShowSettingsModal(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowSettingsModal(false) }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm m-0 w-full h-full border-none"
         >
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">Game Settings</h2>
               <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
@@ -604,6 +622,7 @@ export default function GamePage() {
                   <option value="lol" className="bg-gray-900">League of Legends</option>
                   <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
                   <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
+                  <option value="game-titles" className="bg-gray-900">Game Titles</option>
                 </select>
               </div>
               <div>
@@ -644,7 +663,7 @@ export default function GamePage() {
               </button>
             )}
           </div>
-        </div>
+        </dialog>
       )}
     </div>
   )

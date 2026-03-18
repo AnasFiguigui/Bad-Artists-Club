@@ -16,7 +16,7 @@ export interface Room {
   host: string
   players: Player[]
   state: 'lobby' | 'playing' | 'results'
-  theme: 'lol' | 'elden-ring' | 'dbd'
+  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles'
   round: number
   totalRounds: number
   drawer?: string
@@ -52,7 +52,7 @@ export interface ChatMessage {
 }
 
 export interface GameConfig {
-  theme: 'lol' | 'elden-ring' | 'dbd'
+  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles'
   rounds: 3 | 5 | 8 | 10
   drawTime: 60 | 90 | 120
   maxPlayers: number

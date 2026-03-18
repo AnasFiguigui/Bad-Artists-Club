@@ -140,6 +140,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('draw', (data) => {
     if (!rateLimit(socket.id, 'draw', 60, 1000)) return
+    if (!data || !isValidRoomId(data.roomId)) return
     gameManager.handleDraw(socket, data)
   })
 
@@ -238,6 +239,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('clear-canvas', (data: { roomId: string }) => {
     if (!rateLimit(socket.id, 'clear-canvas', 5, 5000)) return
+    if (!isValidRoomId(data.roomId)) return
     try {
       gameManager.handleClearCanvas(socket, data.roomId)
     } catch (error) {
@@ -247,6 +249,7 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('undo', (data: { roomId: string }) => {
     if (!rateLimit(socket.id, 'undo', 10, 5000)) return
+    if (!isValidRoomId(data.roomId)) return
     try {
       gameManager.handleUndo(socket, data.roomId)
     } catch (error) {

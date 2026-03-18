@@ -6,7 +6,6 @@ import { initSocket, getSocket } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room, GameConfig } from '@/lib/types'
 import { Grainient } from '@/components/Grainient'
-import { HandDrawnBorder } from '@/components/HandDrawnBorder'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
 const DEFAULT_CONFIG: GameConfig = {
@@ -144,7 +143,7 @@ export default function LobbyPage() {
   }
 
   const handleCopyLink = () => {
-    const link = `${window.location.origin}/?roomId=${room?.id}`
+    const link = `${globalThis.location.origin}/?roomId=${room?.id}`
     navigator.clipboard.writeText(link)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -187,8 +186,9 @@ export default function LobbyPage() {
 
             <div className="space-y-5">
               <div>
-                <label className="block text-white font-medium text-lg mb-2 font-caveat">Theme</label>
+                <label htmlFor="lobby-theme" className="block text-white font-medium text-lg mb-2 font-caveat">Theme</label>
                 <select
+                  id="lobby-theme"
                   value={config.theme}
                   onChange={(e) => handleUpdateConfig({ theme: e.target.value as any })}
                   className="w-full px-4 py-2 bg-white/10 text-white rounded-lg border border-white/20 backdrop-blur-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 transition-colors appearance-none cursor-pointer hover:border-white/30"
@@ -196,37 +196,40 @@ export default function LobbyPage() {
                   <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
                   <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
                   <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
+                  <option value="game-titles" className="bg-gray-900">🎮 Game Titles</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
+                <label htmlFor="lobby-rounds" className="text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
                   <span>Rounds</span>
                   <span className="text-white font-bold">{config.rounds}</span>
                 </label>
                 <input
+                  id="lobby-rounds"
                   type="range"
                   min="3"
                   max="10"
                   step="1"
                   value={config.rounds}
-                  onChange={(e) => handleUpdateConfig({ rounds: parseInt(e.target.value) as any })}
+                  onChange={(e) => handleUpdateConfig({ rounds: Number.parseInt(e.target.value) as any })}
                   className="w-full slider-modern"
                 />
               </div>
 
               <div>
-                <label className="block text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
+                <label htmlFor="lobby-drawtime" className="text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
                   <span>Draw Time</span>
                   <span className="text-white font-bold">{config.drawTime}s</span>
                 </label>
                 <input
+                  id="lobby-drawtime"
                   type="range"
                   min="60"
                   max="120"
                   step="30"
                   value={config.drawTime}
-                  onChange={(e) => handleUpdateConfig({ drawTime: parseInt(e.target.value) as any })}
+                  onChange={(e) => handleUpdateConfig({ drawTime: Number.parseInt(e.target.value) as any })}
                   className="w-full slider-modern"
                 />
               </div>

@@ -14,7 +14,11 @@ function levenshteinDistance(a: string, b: string): number {
   const la = a.length
   const lb = b.length
   const dp: number[][] = Array.from({ length: la + 1 }, (_, i) =>
-    Array.from({ length: lb + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+    Array.from({ length: lb + 1 }, (_, j) => {
+      if (i === 0) return j
+      if (j === 0) return i
+      return 0
+    })
   )
   for (let i = 1; i <= la; i++) {
     for (let j = 1; j <= lb; j++) {
@@ -34,6 +38,10 @@ export class GameManager {
   private readonly roundStartTimes: Map<string, number> = new Map()
   private readonly characterData: Map<string, CharacterData[]> = new Map()
   private readonly canvasStrokes: Map<string, DrawStroke[]> = new Map()
+  private readonly cooldownRooms: Set<string> = new Set()
+  // Per-room draw event counter for flood protection
+  private readonly roomDrawCounts: Map<string, { count: number; resetTime: number }> = new Map()
+  private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
     this.io = io
@@ -56,6 +64,7 @@ export class GameManager {
       { key: 'lol', file: 'lolChampions.json' },
       { key: 'elden-ring', file: 'eldenRingBosses.json' },
       { key: 'dbd', file: 'dbdKillers.json' },
+      { key: 'game-titles', file: 'gameTitles.json' },
     ]
 
     for (const { key, file } of themes) {
@@ -87,7 +96,7 @@ export class GameManager {
     if (typeof name !== 'string') throw new Error('Invalid username')
     const trimmed = name.trim()
     if (trimmed.length < 1 || trimmed.length > 20) throw new Error('Username must be 1-20 characters')
-    if (!/^[a-zA-Z0-9_ \-]{1,20}$/.test(trimmed)) throw new Error('Username can only contain letters, numbers, spaces, hyphens, and underscores')
+    if (!/^[a-zA-Z0-9_ -]{1,20}$/.test(trimmed)) throw new Error('Username can only contain letters, numbers, spaces, hyphens, and underscores')
     return trimmed
   }
 
@@ -98,7 +107,7 @@ export class GameManager {
     const username = this.validateUsername(data.username)
 
     // Validate GameConfig
-    const validThemes = ['lol', 'elden-ring', 'dbd']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles']
     const validDrawTimes = [60, 90, 120]
     if (!data.config || typeof data.config !== 'object') throw new Error('Invalid config')
     if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
@@ -287,8 +296,12 @@ export class GameManager {
     if (room.turnIndex < totalTurns) {
       this.roomManager.resetRoundState(roomId)
       // 5 second cooldown between turns
+      this.cooldownRooms.add(roomId)
       this.io.to(roomId).emit('turn-cooldown', { seconds: 5 })
-      setTimeout(() => this.startTurn(roomId), 5000)
+      setTimeout(() => {
+        this.cooldownRooms.delete(roomId)
+        this.startTurn(roomId)
+      }, 5000)
     } else {
       this.roomManager.updateRoomState(roomId, 'results')
       this.roomManager.syncPlayerScores(roomId)
@@ -315,62 +328,136 @@ export class GameManager {
     return { ...room, answer: undefined, canvasStrokes: strokes }
   }
 
-  handleDraw(socket: Socket, stroke: DrawStroke): void {
-    // Validate DrawStroke input
-    if (!stroke || typeof stroke !== 'object') return
-    if (typeof stroke.roomId !== 'string') return
-    if (!Array.isArray(stroke.points) || stroke.points.length > 5000) return
-    if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return
-    if (typeof stroke.color !== 'string' || stroke.color.length > 20) return
-    if (!['brush', 'eraser', 'fill'].includes(stroke.tool)) return
-    if (stroke.partial !== undefined && typeof stroke.partial !== 'boolean') return
+  private validateStroke(stroke: DrawStroke): boolean {
+    if (!stroke || typeof stroke !== 'object') return false
+    if (typeof stroke.roomId !== 'string' || !/^[a-zA-Z0-9-]{1,36}$/.test(stroke.roomId)) return false
+    const maxPoints = stroke.partial ? 50 : 5000
+    if (!Array.isArray(stroke.points) || stroke.points.length > maxPoints) return false
+    if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return false
+    if (typeof stroke.color !== 'string' || stroke.color.length > 20) return false
+    if (!['brush', 'eraser', 'fill'].includes(stroke.tool)) return false
+    if (stroke.partial !== undefined && typeof stroke.partial !== 'boolean') return false
     for (const p of stroke.points) {
-      if (typeof p.x !== 'number' || typeof p.y !== 'number') return
-      if (p.x < 0 || p.x > 1280 || p.y < 0 || p.y > 720) return
+      if (typeof p.x !== 'number' || typeof p.y !== 'number') return false
+      if (p.x < 0 || p.x > 1280 || p.y < 0 || p.y > 720) return false
     }
+    return true
+  }
 
-    const room = this.roomManager.getRoom(stroke.roomId)
-    // In 'results' state, allow everyone in the room to draw (free draw mode)
-    if (room?.state === 'results') {
-      if (!room.players.some((p: { id: string }) => p.id === socket.id)) return
-
-      // Partial strokes: relay for real-time sync but don't store
-      if (stroke.partial) {
-        socket.to(stroke.roomId).emit('draw', stroke)
-        return
-      }
-
-      // Store complete strokes for mid-game joiners (capped)
-      const freeStrokes = this.canvasStrokes.get(stroke.roomId) || []
-      if (freeStrokes.length < 2000) {
-        freeStrokes.push(stroke)
-        this.canvasStrokes.set(stroke.roomId, freeStrokes)
-      }
-
-      socket.to(stroke.roomId).emit('draw', stroke)
-      return
+  /** Per-room draw flood protection — returns false if room exceeded draw rate */
+  private isRoomDrawAllowed(roomId: string): boolean {
+    const now = Date.now()
+    const entry = this.roomDrawCounts.get(roomId)
+    if (!entry || now >= entry.resetTime) {
+      this.roomDrawCounts.set(roomId, { count: 1, resetTime: now + 1000 })
+      return true
     }
-    if (!room?.drawer || room.drawer !== socket.id) return
+    entry.count++
+    return entry.count <= GameManager.MAX_ROOM_DRAWS_PER_SECOND
+  }
 
-    // Partial strokes: relay for real-time sync but don't store (saves memory, keeps replay clean)
+  private relayStroke(socket: Socket, stroke: DrawStroke): void {
     if (stroke.partial) {
       socket.to(stroke.roomId).emit('draw', stroke)
       return
     }
-
-    // Store complete strokes for mid-game joiners (cap at 2000 strokes per room)
     const strokes = this.canvasStrokes.get(stroke.roomId) || []
     if (strokes.length < 2000) {
       strokes.push(stroke)
       this.canvasStrokes.set(stroke.roomId, strokes)
     }
-
-    // Broadcast to other players (drawer already sees own strokes)
     socket.to(stroke.roomId).emit('draw', stroke)
   }
 
+  handleDraw(socket: Socket, stroke: DrawStroke): void {
+    if (!this.validateStroke(stroke)) return
+    if (!this.isRoomDrawAllowed(stroke.roomId)) return
+
+    const room = this.roomManager.getRoom(stroke.roomId)
+
+    // Block drawing during cooldown
+    if (this.cooldownRooms.has(stroke.roomId) && room?.state !== 'results') return
+
+    // In 'results' state, allow everyone in the room to draw (free draw mode)
+    if (room?.state === 'results') {
+      if (!room.players.some((p: { id: string }) => p.id === socket.id)) return
+      this.relayStroke(socket, stroke)
+      return
+    }
+
+    if (!room?.drawer || room.drawer !== socket.id) return
+    this.relayStroke(socket, stroke)
+  }
+
+  private handleCorrectGuess(socket: Socket, roomId: string, room: Room, player: { username: string }): { success: boolean; isCorrect: boolean } {
+    room.correctGuessers.push(socket.id)
+    const position = room.correctGuessers.length
+    const ordinals: Record<number, string> = { 1: '1st', 2: '2nd', 3: '3rd' }
+    const ordinal = ordinals[position] || `${position}th`
+
+    this.io.to(roomId).emit('chat-message', {
+      userId: socket.id,
+      username: player.username,
+      message: `${player.username} guessed correctly! (${ordinal})`,
+      timestamp: Date.now(),
+      isCorrect: true,
+      isSystem: true,
+      guessPosition: position,
+    })
+
+    const roundStart = this.roundStartTimes.get(roomId) || Date.now()
+    const elapsedSeconds = Math.floor((Date.now() - roundStart) / 1000)
+    const points = Math.max(1000 - elapsedSeconds * 5, 100)
+
+    this.roomManager.updateScore(roomId, socket.id, points)
+    if (room.drawer) {
+      this.roomManager.updateScore(roomId, room.drawer, Math.floor(points * 0.7))
+    }
+
+    this.roomManager.syncPlayerScores(roomId)
+
+    const updatedRoom = this.roomManager.getRoom(roomId)!
+    const revealedIds = new Set([...room.correctGuessers, ...(room.drawer ? [room.drawer] : [])])
+    for (const p of room.players) {
+      const showAnswer = revealedIds.has(p.id)
+      this.io.to(p.id).emit('guess-correct', { ...updatedRoom, answer: showAnswer ? room.answer : undefined })
+    }
+
+    const nonDrawerPlayers = room.players.filter((p: { id: string }) => p.id !== room.drawer)
+    if (room.correctGuessers.length >= nonDrawerPlayers.length) {
+      const timer = this.timers.get(roomId)
+      if (timer) clearInterval(timer)
+      this.timers.delete(roomId)
+      this.roundStartTimes.delete(roomId)
+      setTimeout(() => this.endTurn(roomId), 3000)
+    }
+
+    return { success: true, isCorrect: true }
+  }
+
+  private handleCloseGuess(socket: Socket, room: Room, player: { username: string }, message: string): { success: boolean; isCorrect: boolean } {
+    socket.emit('chat-message', {
+      userId: socket.id,
+      username: player.username,
+      message: 'Your guess was close to the word!',
+      timestamp: Date.now(),
+      isClose: true,
+      isSystem: true,
+    })
+
+    if (room.drawer) {
+      this.io.to(room.drawer).emit('chat-message', {
+        userId: socket.id,
+        username: player.username,
+        message,
+        timestamp: Date.now(),
+      })
+    }
+
+    return { success: true, isCorrect: false }
+  }
+
   handleChatMessage(socket: Socket, roomId: string, message: string): { success: boolean; isCorrect?: boolean } {
-    // Validate message
     if (typeof message !== 'string' || message.length === 0 || message.length > 200) {
       return { success: false }
     }
@@ -381,135 +468,32 @@ export class GameManager {
     const player = room.players.find((p: { id: string }) => p.id === socket.id)
     if (!player) throw new Error('Player not in room')
 
-    // In 'results' state, allow free chat (no guessing)
+    if (this.cooldownRooms.has(roomId) && room.state !== 'results') {
+      return { success: false }
+    }
+
     if (room.state === 'results') {
-      const chatMsg = {
-        userId: socket.id,
-        username: player.username,
-        message,
-        timestamp: Date.now(),
-      }
-      this.io.to(roomId).emit('chat-message', chatMsg)
+      this.io.to(roomId).emit('chat-message', {
+        userId: socket.id, username: player.username, message, timestamp: Date.now(),
+      })
       return { success: true, isCorrect: false }
     }
 
-    // Drawer cannot guess
-    if (player.isDrawer) {
+    if (player.isDrawer || room.correctGuessers.includes(socket.id)) {
       return { success: false }
     }
 
-    // Already guessed correctly this turn
-    if (room.correctGuessers.includes(socket.id)) {
-      return { success: false }
-    }
+    const guess = message.trim().toLowerCase()
+    const answer = room.answer?.toLowerCase() || ''
+    const isCorrect = answer !== '' && guess === answer
+    const isClose = !isCorrect && answer !== '' && levenshteinDistance(guess, answer) <= 2
 
-    const isCorrect = room.answer
-      ? message.trim().toLowerCase() === room.answer.toLowerCase()
-      : false
+    if (isCorrect) return this.handleCorrectGuess(socket, roomId, room, player)
+    if (isClose) return this.handleCloseGuess(socket, room, player, message)
 
-    // Check close guess (Levenshtein distance <= 2, but not exact)
-    const isClose = !isCorrect && room.answer
-      ? levenshteinDistance(message.trim().toLowerCase(), room.answer.toLowerCase()) <= 2
-      : false
-
-    if (isCorrect) {
-      // Track correct guesser position
-      room.correctGuessers.push(socket.id)
-      const position = room.correctGuessers.length
-
-      const ordinal = position === 1 ? '1st' : position === 2 ? '2nd' : position === 3 ? '3rd' : `${position}th`
-
-      // System message visible to EVERYONE (emerald)
-      const correctMsg = {
-        userId: socket.id,
-        username: player.username,
-        message: `${player.username} guessed correctly! (${ordinal})`,
-        timestamp: Date.now(),
-        isCorrect: true,
-        isSystem: true,
-        guessPosition: position,
-      }
-      this.io.to(roomId).emit('chat-message', correctMsg)
-
-      // Score calculation
-      const roundStart = this.roundStartTimes.get(roomId) || Date.now()
-      const elapsedSeconds = Math.floor((Date.now() - roundStart) / 1000)
-      const points = Math.max(1000 - elapsedSeconds * 5, 100)
-
-      this.roomManager.updateScore(roomId, socket.id, points)
-
-      const drawerPoints = Math.floor(points * 0.7)
-      if (room.drawer) {
-        this.roomManager.updateScore(roomId, room.drawer, drawerPoints)
-      }
-
-      this.roomManager.syncPlayerScores(roomId)
-
-      const updatedRoom = this.roomManager.getRoom(roomId)!
-      // Send answer only to players who already guessed + drawer
-      for (const id of room.correctGuessers) {
-        this.io.to(id).emit('guess-correct', { ...updatedRoom, answer: room.answer })
-      }
-      if (room.drawer) {
-        this.io.to(room.drawer).emit('guess-correct', { ...updatedRoom, answer: room.answer })
-      }
-      // Send without answer to remaining players
-      const revealedIds = new Set([...room.correctGuessers, ...(room.drawer ? [room.drawer] : [])])
-      for (const p of room.players) {
-        if (!revealedIds.has(p.id)) {
-          this.io.to(p.id).emit('guess-correct', { ...updatedRoom, answer: undefined })
-        }
-      }
-
-      // Check if all non-drawer players have guessed
-      const nonDrawerPlayers = room.players.filter((p: { id: string }) => p.id !== room.drawer)
-      if (room.correctGuessers.length >= nonDrawerPlayers.length) {
-        // Everyone guessed, end turn early
-        const timer = this.timers.get(roomId)
-        if (timer) clearInterval(timer)
-        this.timers.delete(roomId)
-        this.roundStartTimes.delete(roomId)
-        setTimeout(() => this.endTurn(roomId), 3000)
-      }
-
-      return { success: true, isCorrect: true }
-    }
-
-    if (isClose) {
-      // Send close-guess message ONLY to the guesser (private)
-      const closeMsg = {
-        userId: socket.id,
-        username: player.username,
-        message: 'Your guess was close to the word!',
-        timestamp: Date.now(),
-        isClose: true,
-        isSystem: true,
-      }
-      socket.emit('chat-message', closeMsg)
-
-      // Send the actual message to drawer only (drawer sees all)
-      if (room.drawer) {
-        const drawerMsg = {
-          userId: socket.id,
-          username: player.username,
-          message,
-          timestamp: Date.now(),
-        }
-        this.io.to(room.drawer).emit('chat-message', drawerMsg)
-      }
-
-      return { success: true, isCorrect: false }
-    }
-
-    // Normal message: broadcast to everyone
-    const chatMsg = {
-      userId: socket.id,
-      username: player.username,
-      message,
-      timestamp: Date.now(),
-    }
-    this.io.to(roomId).emit('chat-message', chatMsg)
-
+    this.io.to(roomId).emit('chat-message', {
+      userId: socket.id, username: player.username, message, timestamp: Date.now(),
+    })
     return { success: true, isCorrect: false }
   }
 
@@ -544,6 +528,8 @@ export class GameManager {
     this.timers.delete(roomId)
     this.roundStartTimes.delete(roomId)
     this.canvasStrokes.delete(roomId)
+    this.cooldownRooms.delete(roomId)
+    this.roomDrawCounts.delete(roomId)
 
     this.roomManager.resetGameForRestart(roomId)
 
@@ -569,6 +555,7 @@ export class GameManager {
     if (timer) clearInterval(timer)
     this.timers.delete(roomId)
     this.roundStartTimes.delete(roomId)
+    this.cooldownRooms.delete(roomId)
 
     this.roomManager.updateRoomState(roomId, 'results')
     this.roomManager.syncPlayerScores(roomId)
@@ -624,7 +611,7 @@ export class GameManager {
     if (room.host !== socket.id) throw new Error('Only the host can update settings')
     if (room.state === 'playing') throw new Error('Cannot change settings while game is in progress')
 
-    const validThemes = ['lol', 'elden-ring', 'dbd']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles']
     const validRounds = [3, 5, 8, 10]
     const validDrawTimes = [60, 90, 120]
 
@@ -720,6 +707,8 @@ export class GameManager {
       this.timers.delete(room.id)
       this.roundStartTimes.delete(room.id)
       this.canvasStrokes.delete(room.id)
+      this.cooldownRooms.delete(room.id)
+      this.roomDrawCounts.delete(room.id)
       this.roomManager.deleteRoom(room.id)
       console.log(`[Room] Deleted empty room ${room.id}`)
       return

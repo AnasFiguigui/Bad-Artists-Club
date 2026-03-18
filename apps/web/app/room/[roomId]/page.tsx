@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { initSocket, waitForSocketConnection } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room } from '@/lib/types'
 import { Grainient } from '@/components/Grainient'
-import { HandDrawnBorder } from '@/components/HandDrawnBorder'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
 export default function RoomPage() {
@@ -21,6 +20,44 @@ export default function RoomPage() {
   const [socket, setSocket] = useState<any>(null)
   const [roomIdCopied, setRoomIdCopied] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+
+  const updateRoomHost = useCallback((newHostId: string) => {
+    setRoom((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        host: newHostId,
+        players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
+      }
+    })
+  }, [])
+
+  const handleJoinResponse = useCallback((
+    sock: ReturnType<typeof initSocket>,
+    response: { success: boolean; room?: Room; error?: string },
+    joinTimeout: NodeJS.Timeout | undefined,
+  ) => {
+    console.log('[Room] join-room callback:', response.success)
+    if (joinTimeout) clearTimeout(joinTimeout)
+
+    if (response.success && response.room) {
+      gameStore.setState({ roomId, room: response.room })
+      const currentPlayer = response.room.players.find((p) => p.id === sock.id)
+      if (currentPlayer) gameStore.setState({ currentPlayer })
+
+      if (response.room.state === 'playing' || response.room.state === 'results') {
+        console.log('[Room] Game in progress or ended, redirecting to /game')
+        router.push('/game')
+        return
+      }
+
+      setRoom(response.room)
+      setLoading(false)
+    } else {
+      alert(response.error || 'Failed to join room')
+      router.push('/')
+    }
+  }, [roomId, router])
 
   useEffect(() => {
     if (!username) {
@@ -50,14 +87,7 @@ export default function RoomPage() {
     })
 
     sock.on('host-changed', ({ newHostId }: { newHostId: string }) => {
-      setRoom((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          host: newHostId,
-          players: prev.players.map((p) => ({ ...p, isHost: p.id === newHostId })),
-        }
-      })
+      updateRoomHost(newHostId)
     })
 
     sock.on('settings-updated', (updatedRoom: Room) => {
@@ -85,27 +115,7 @@ export default function RoomPage() {
           console.log('[Room] Socket ready, emitting join-room')
 
           sock.emit('join-room', { roomId, username }, (response: { success: boolean; room?: Room; error?: string }) => {
-            console.log('[Room] join-room callback:', response.success)
-            if (joinTimeout) clearTimeout(joinTimeout)
-
-            if (response.success && response.room) {
-              gameStore.setState({ roomId, room: response.room })
-              const currentPlayer = response.room.players.find((p) => p.id === sock.id)
-              if (currentPlayer) gameStore.setState({ currentPlayer })
-
-              // If the game is already in progress or ended, redirect to game page
-              if (response.room.state === 'playing' || response.room.state === 'results') {
-                console.log('[Room] Game in progress or ended, redirecting to /game')
-                router.push('/game')
-                return
-              }
-
-              setRoom(response.room)
-              setLoading(false)
-            } else {
-              alert(response.error || 'Failed to join room')
-              router.push('/')
-            }
+            handleJoinResponse(sock, response, joinTimeout)
           })
         } catch (error) {
           console.error('[Room] Socket connection failed:', error)
@@ -189,8 +199,8 @@ export default function RoomPage() {
 
   const isHost = room.host === socket?.id
   const allReady = room.players.every((p) => p.ready)
-  const themeLabels: Record<string, string> = { lol: 'League of Legends', 'elden-ring': 'Elden Ring', dbd: 'Dead by Daylight' }
-  const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪' }
+  const themeLabels: Record<string, string> = { lol: 'League of Legends', 'elden-ring': 'Elden Ring', dbd: 'Dead by Daylight', 'game-titles': 'Game Titles' }
+  const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪', 'game-titles': '🎮' }
 
   return (
     <main className="min-h-screen relative p-4 sm:p-8 overflow-hidden">
@@ -223,7 +233,7 @@ export default function RoomPage() {
             </button>
             <button
               onClick={handleCopyRoomId}
-              className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all hover:shadow-md backdrop-blur-sm text-xs sm:text-sm ${
+              className={`px-3 py-2 rounded-lg font-semibold transition-all hover:shadow-md backdrop-blur-sm text-xs sm:text-sm ${
                 roomIdCopied ? 'bg-emerald-500/40 border border-emerald-400/40 text-emerald-100' : 'bg-white/20 hover:bg-white/30 border border-white/40 text-white'
               }`}
             >
@@ -242,8 +252,9 @@ export default function RoomPage() {
             {isHost ? (
               <div className="space-y-5">
                 <div>
-                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</label>
+                  <label htmlFor="room-theme" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</label>
                   <select
+                    id="room-theme"
                     value={room.theme}
                     onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
@@ -251,11 +262,13 @@ export default function RoomPage() {
                     <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
                     <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
                     <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
+                    <option value="game-titles" className="bg-gray-900">🎮 Game Titles</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</label>
+                  <label htmlFor="room-rounds" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</label>
                   <select
+                    id="room-rounds"
                     value={room.totalRounds}
                     onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
@@ -266,8 +279,9 @@ export default function RoomPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</label>
+                  <label htmlFor="room-drawtime" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</label>
                   <select
+                    id="room-drawtime"
                     value={room.drawTime}
                     onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
                     className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"

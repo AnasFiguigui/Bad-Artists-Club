@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 
+type ToolType = 'brush' | 'eraser' | 'fill'
+
 interface BrushControlsProps {
   onColorChange: (color: string) => void
   onSizeChange: (size: number) => void
-  onToolChange: (tool: 'brush' | 'eraser' | 'fill') => void
+  onToolChange: (tool: ToolType) => void
   onClear: () => void
   onUndo: () => void
   isDrawer: boolean
@@ -26,14 +28,14 @@ export function BrushControls({
   onClear,
   onUndo,
   isDrawer,
-}: BrushControlsProps) {
-  const [activeTool, setActiveTool] = useState<'brush' | 'eraser' | 'fill'>('brush')
+}: Readonly<BrushControlsProps>) {
+  const [activeTool, setActiveTool] = useState<ToolType>('brush')
   const [activeColor, setActiveColor] = useState('#000000')
   const [brushSize, setBrushSize] = useState(5)
 
   if (!isDrawer) return null
 
-  const handleToolChange = (tool: 'brush' | 'eraser' | 'fill') => {
+  const handleToolChange = (tool: ToolType) => {
     setActiveTool(tool)
     onToolChange(tool)
   }

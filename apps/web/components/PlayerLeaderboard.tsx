@@ -18,7 +18,7 @@ export function PlayerLeaderboard({
   hostId,
   drawerId,
   onKick,
-}: PlayerLeaderboardProps) {
+}: Readonly<PlayerLeaderboardProps>) {
   const sorted = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
   const isHost = currentPlayerId === hostId
 

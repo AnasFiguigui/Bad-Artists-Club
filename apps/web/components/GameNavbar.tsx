@@ -21,24 +21,55 @@ interface GameNavbarProps {
   onEditSettings?: () => void
 }
 
-export function GameNavbar({
-  roomId,
-  isDrawer,
-  answer,
-  hint,
-  roundAnswer,
-  timeRemaining,
-  totalTime,
-  round,
-  totalRounds,
-  turnIndex,
-  playerCount,
-  muted,
-  onToggleMute,
-  isHost,
-  gameEnded,
-  onEditSettings,
-}: GameNavbarProps) {
+function getTimerColorNav(timerPercent: number): string {
+  if (timerPercent > 50) return 'text-emerald-400'
+  if (timerPercent > 25) return 'text-yellow-400'
+  return 'text-red-400'
+}
+
+function renderCenterContent(props: Readonly<GameNavbarProps>): React.ReactNode {
+  const { gameEnded, roundAnswer, isDrawer, answer, hint } = props
+  if (gameEnded) {
+    return <span className="text-indigo-400 font-bold text-sm sm:text-lg">🎨 Free Draw!</span>
+  }
+  if (roundAnswer) {
+    return (
+      <div className="flex items-center gap-1 sm:gap-2">
+        <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Answer:</span>
+        <span className="text-yellow-400 font-bold text-sm sm:text-lg">{roundAnswer}</span>
+      </div>
+    )
+  }
+  if (isDrawer && answer) {
+    return (
+      <div className="flex items-center gap-1 sm:gap-2">
+        <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Draw:</span>
+        <span className="text-emerald-400 font-bold text-sm sm:text-lg">{answer}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="text-gray-300 text-base sm:text-xl font-mono tracking-[0.2em] sm:tracking-[0.3em] truncate">
+      {hint || '...'}
+    </div>
+  )
+}
+
+export function GameNavbar(props: Readonly<GameNavbarProps>) {
+  const {
+    roomId,
+    timeRemaining,
+    totalTime,
+    round,
+    totalRounds,
+    turnIndex,
+    playerCount,
+    muted,
+    onToggleMute,
+    isHost,
+    gameEnded,
+    onEditSettings,
+  } = props
   const [copied, setCopied] = useState(false)
 
   const handleCopyLink = () => {
@@ -51,7 +82,7 @@ export function GameNavbar({
   const totalTurns = totalRounds * playerCount
   const currentTurn = turnIndex + 1
   const timerPercent = totalTime > 0 ? (timeRemaining / totalTime) * 100 : 0
-  const timerColor = timerPercent > 50 ? 'text-emerald-400' : timerPercent > 25 ? 'text-yellow-400' : 'text-red-400'
+  const timerColor = getTimerColorNav(timerPercent)
 
   return (
     <nav className="flex items-center justify-between bg-gray-900/90 border-b border-indigo-500/50 px-2 sm:px-4 h-12 sm:h-14 shrink-0">
@@ -67,23 +98,7 @@ export function GameNavbar({
 
       {/* Center: Drawing prompt / Hint + Timer */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 justify-center">
-        {gameEnded ? (
-          <span className="text-indigo-400 font-bold text-sm sm:text-lg">🎨 Free Draw!</span>
-        ) : roundAnswer ? (
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Answer:</span>
-            <span className="text-yellow-400 font-bold text-sm sm:text-lg">{roundAnswer}</span>
-          </div>
-        ) : isDrawer && answer ? (
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">Draw:</span>
-            <span className="text-emerald-400 font-bold text-sm sm:text-lg">{answer}</span>
-          </div>
-        ) : (
-          <div className="text-gray-300 text-base sm:text-xl font-mono tracking-[0.2em] sm:tracking-[0.3em] truncate">
-            {hint || '...'}
-          </div>
-        )}
+        {renderCenterContent(props)}
         <div className={`font-bold text-base sm:text-xl tabular-nums ${timerColor}`}>
           {gameEnded ? '' : `${timeRemaining}s`}
         </div>

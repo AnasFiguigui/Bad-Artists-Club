@@ -39,17 +39,21 @@ export default function ResultsPage() {
           <p className="text-center text-gray-400 mb-8">Final Results</p>
 
           <div className="space-y-3 mb-8">
-            {finalScores.map((player, idx) => (
-              <div key={idx} className="flex items-center justify-between bg-gray-800 p-3 rounded">
-                <div className="flex items-center gap-2">
-                  <span className="text-gray-500 font-bold w-6">
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                  </span>
-                  <span className="text-white">{player.username}</span>
+            {finalScores.map((player) => {
+              const idx = finalScores.indexOf(player)
+              const medals: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
+              return (
+                <div key={player.username} className="flex items-center justify-between bg-gray-800 p-3 rounded">
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500 font-bold w-6">
+                      {medals[idx] ?? `#${idx + 1}`}
+                    </span>
+                    <span className="text-white">{player.username}</span>
+                  </div>
+                  <span className="text-emerald-400 font-bold">{player.score}</span>
                 </div>
-                <span className="text-emerald-400 font-bold">{player.score}</span>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="flex gap-3">

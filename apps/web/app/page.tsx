@@ -92,8 +92,9 @@ function HomeContent() {
                 </p>
                 
                 <div>
-                  <label className="block text-xl font-medium text-gray-100 mb-2 font-caveat text-base">Your Name</label>
+                  <label htmlFor="join-username" className="block font-medium text-gray-100 mb-2 font-caveat text-base">Your Name</label>
                   <input
+                    id="join-username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -119,8 +120,9 @@ function HomeContent() {
               // CREATE ROOM FLOW
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xl font-medium text-gray-100 mb-2 font-caveat">Your Name</label>
+                  <label htmlFor="create-username" className="block font-medium text-gray-100 mb-2 font-caveat text-base">Your Name</label>
                   <input
+                    id="create-username"
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
