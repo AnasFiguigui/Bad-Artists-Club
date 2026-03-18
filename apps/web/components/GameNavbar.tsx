@@ -21,6 +21,7 @@ interface GameNavbarProps {
   onEditSettings?: () => void
   themeColor?: string
   isChoosingWord?: boolean
+  themeName?: string
 }
 
 function getTimerColorNav(timerPercent: number): string {
@@ -65,16 +66,13 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
     roomId,
     timeRemaining,
     totalTime,
-    round,
-    totalRounds,
-    turnIndex,
-    playerCount,
     muted,
     onToggleMute,
     isHost,
     gameEnded,
     onEditSettings,
     themeColor,
+    themeName,
   } = props
   const [copied, setCopied] = useState(false)
 
@@ -85,8 +83,6 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const totalTurns = totalRounds * playerCount
-  const currentTurn = turnIndex + 1
   const timerPercent = totalTime > 0 ? (timeRemaining / totalTime) * 100 : 0
   const timerColor = getTimerColorNav(timerPercent)
 
@@ -97,8 +93,8 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
         <div className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0">
           <img src="/images/logo-bac-txt-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
         </div>
-        <div className="text-xs hidden md:block font-medium" style={{ color: themeColor || '#9ca3af' }}>
-          R{round}/{totalRounds} · T{currentTurn}/{totalTurns}
+        <div className="text-xs hidden md:block font-medium text-white">
+          {themeName || 'Bad Artists Club'}
         </div>
       </div>
 

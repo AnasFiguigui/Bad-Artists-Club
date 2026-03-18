@@ -420,6 +420,7 @@ export default function GamePage() {
         onEditSettings={() => setShowSettingsModal(true)}
         themeColor={themeColors.primary}
         isChoosingWord={isChoosingWord}
+        themeName={themeConfig.name}
       />
 
       {/* Floating toast notifications */}

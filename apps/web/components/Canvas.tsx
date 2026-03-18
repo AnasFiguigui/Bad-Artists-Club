@@ -354,7 +354,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
 
       const tool = currentToolRef.current
       if (tool === 'fill' || SHAPE_TOOLS.has(tool)) {
-        canvas.style.cursor = 'crosshair'
+        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><line x1='12' y1='0' x2='12' y2='24' stroke='%23000' stroke-width='1.5'/><line x1='0' y1='12' x2='24' y2='12' stroke='%23000' stroke-width='1.5'/><line x1='12' y1='0' x2='12' y2='24' stroke='%23fff' stroke-width='0.5'/><line x1='0' y1='12' x2='24' y2='12' stroke='%23fff' stroke-width='0.5'/></svg>`
+        canvas.style.cursor = `url("data:image/svg+xml,${svg}") 12 12, crosshair`
         return
       }
 
@@ -505,20 +506,7 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
           contextRef.current.putImageData(shapeSnapshotRef.current, 0, 0)
           drawShapeOnCtx(contextRef.current, currentToolRef.current, shapeStartRef.current, coords, currentColorRef.current, currentSizeRef.current)
 
-          // Emit partial for live sync
-          const now = performance.now()
-          if (now - lastEmitTimeRef.current >= STREAM_THROTTLE_MS) {
-            onDrawRef.current({
-              roomId: roomIdRef.current,
-              userId: playerIdRef.current,
-              color: currentColorRef.current,
-              size: currentSizeRef.current,
-              tool: currentToolRef.current,
-              points: [shapeStartRef.current, coords],
-              partial: true,
-            })
-            lastEmitTimeRef.current = now
-          }
+
         }
 
         const handleShapeUp = (ev: MouseEvent) => {
