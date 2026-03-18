@@ -84,6 +84,38 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
     },
     referenceAspectRatio: '16/9',
   },
+  anime: {
+    name: 'Anime',
+    emoji: '🌸',
+    colors: {
+      primary: '#e879a8',       // Sakura pink
+      primaryLight: '#fbcfe8',
+      primaryDark: '#be185d',
+      secondary: '#7c3aed',     // Violet accent
+      bg: 'rgba(232, 121, 168, 0.08)',
+      border: 'rgba(232, 121, 168, 0.3)',
+      text: '#fce7f3',
+      textMuted: '#f9a8d4',
+      gradient: 'linear-gradient(135deg, rgba(232, 121, 168, 0.4), rgba(190, 24, 93, 0.4))',
+    },
+    referenceAspectRatio: '9/16',
+  },
+  custom: {
+    name: 'Custom',
+    emoji: '✏️',
+    colors: {
+      primary: '#10b981',       // Emerald green
+      primaryLight: '#6ee7b7',
+      primaryDark: '#047857',
+      secondary: '#f59e0b',     // Amber accent
+      bg: 'rgba(16, 185, 129, 0.08)',
+      border: 'rgba(16, 185, 129, 0.3)',
+      text: '#d1fae5',
+      textMuted: '#6ee7b7',
+      gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(4, 120, 87, 0.4))',
+    },
+    referenceAspectRatio: 'none',
+  },
 }
 
 export function getThemeConfig(theme: string): ThemeConfig {

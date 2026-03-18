@@ -201,6 +201,19 @@ io.on('connection', (socket: Socket) => {
     }
   })
 
+  socket.on('submit-custom-word', (data: { roomId: string; word: string }, callback) => {
+    if (!rateLimit(socket.id, 'submit-custom-word', 3, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
+    try {
+      const result = gameManager.handleSubmitCustomWord(socket, data.roomId, data.word)
+      callback(result)
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
+    }
+  })
+
   socket.on('skip-turn', (data: { roomId: string }, callback) => {
     if (!rateLimit(socket.id, 'skip-turn', 2, 5000)) {
       return callback({ success: false, error: 'Too many requests' })

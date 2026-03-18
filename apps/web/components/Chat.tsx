@@ -9,13 +9,14 @@ interface ChatProps {
   messages: ChatMessageType[]
   onSendMessage: (message: string) => void
   roomId: string
+  themeColor?: string
 }
 
 export interface ChatHandle {
   clearInput: () => void
 }
 
-export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, isCooldown, messages, onSendMessage, roomId }, ref) {
+export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, isCooldown, messages, onSendMessage, roomId, themeColor }, ref) {
   const [input, setInput] = useState('')
   const [lastGuessTime, setLastGuessTime] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -107,11 +108,15 @@ export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, 
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type your guess..."
-              className="flex-1 px-2 py-1.5 bg-gray-800 text-white text-sm rounded border border-gray-700 focus:outline-none focus:border-indigo-500"
+              className="flex-1 px-2 py-1.5 bg-gray-800 text-white text-sm rounded border border-gray-700 focus:outline-none"
+              style={{ '--focus-color': themeColor || '#6366f1' } as React.CSSProperties}
+              onFocus={(e) => e.currentTarget.style.borderColor = themeColor || '#6366f1'}
+              onBlur={(e) => e.currentTarget.style.borderColor = ''}
             />
             <button
               onClick={handleSend}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-sm font-medium transition-colors"
+              className="text-white px-3 py-1.5 rounded text-sm font-medium transition-colors hover:brightness-110"
+              style={{ backgroundColor: themeColor || '#4f46e5' }}
             >
               <svg className="w-4 h-4 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />

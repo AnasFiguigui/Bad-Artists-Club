@@ -41,6 +41,7 @@ export class GameManager {
   private readonly cooldownRooms: Set<string> = new Set()
   // Per-room draw event counter for flood protection
   private readonly roomDrawCounts: Map<string, { count: number; resetTime: number }> = new Map()
+  private readonly customWordTimers: Map<string, NodeJS.Timeout> = new Map()
   private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
@@ -65,6 +66,7 @@ export class GameManager {
       { key: 'elden-ring', file: 'eldenRingBosses.json' },
       { key: 'dbd', file: 'dbdKillers.json' },
       { key: 'game-titles', file: 'gameTitles.json' },
+      { key: 'anime', file: 'animeCharacters.json' },
     ]
 
     for (const { key, file } of themes) {
@@ -107,7 +109,7 @@ export class GameManager {
     const username = this.validateUsername(data.username)
 
     // Validate GameConfig
-    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
     const validDrawTimes = [60, 90, 120]
     if (!data.config || typeof data.config !== 'object') throw new Error('Invalid config')
     if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
@@ -229,6 +231,44 @@ export class GameManager {
 
     // Clear canvas strokes for new turn
     this.canvasStrokes.set(roomId, [])
+
+    // Custom theme: drawer chooses a word
+    if (room.theme === 'custom') {
+      this.roomManager.setAnswer(roomId, '', '')
+      this.roomManager.syncPlayerScores(roomId)
+
+      const updatedRoom = this.roomManager.getRoom(roomId)!
+
+      // Send to drawer — tell them to choose a word
+      this.io.to(drawer.id).emit('round-start', { ...updatedRoom, answer: undefined, customChoosing: true })
+      // Send to guessers — waiting
+      this.io.to(roomId).except(drawer.id).emit('round-start', { ...updatedRoom, answer: undefined, customChoosing: false })
+
+      // Emit choose-word to drawer with 45 sec
+      this.io.to(drawer.id).emit('choose-word', { timeLimit: 45 })
+
+      // Start 45-sec timer for word selection
+      let wordTimeRemaining = 45
+      const wordTimer = setInterval(() => {
+        wordTimeRemaining--
+        this.io.to(roomId).emit('timer-update', { timeRemaining: wordTimeRemaining })
+        if (wordTimeRemaining <= 0) {
+          clearInterval(wordTimer)
+          this.customWordTimers.delete(roomId)
+          // Drawer didn't choose — skip turn
+          this.io.to(roomId).emit('chat-message', {
+            userId: 'system',
+            username: 'System',
+            message: `${drawer.username} didn't choose a word — turn skipped!`,
+            timestamp: Date.now(),
+            isSystem: true,
+          })
+          this.endTurn(roomId)
+        }
+      }, 1000)
+      this.customWordTimers.set(roomId, wordTimer)
+      return
+    }
 
     // Select character
     const character = this.selectRandomCharacter(room.theme)
@@ -530,6 +570,9 @@ export class GameManager {
     this.canvasStrokes.delete(roomId)
     this.cooldownRooms.delete(roomId)
     this.roomDrawCounts.delete(roomId)
+    const cwTimer = this.customWordTimers.get(roomId)
+    if (cwTimer) clearInterval(cwTimer)
+    this.customWordTimers.delete(roomId)
 
     this.roomManager.resetGameForRestart(roomId)
 
@@ -556,6 +599,9 @@ export class GameManager {
     this.timers.delete(roomId)
     this.roundStartTimes.delete(roomId)
     this.cooldownRooms.delete(roomId)
+    const cwTimer2 = this.customWordTimers.get(roomId)
+    if (cwTimer2) clearInterval(cwTimer2)
+    this.customWordTimers.delete(roomId)
 
     this.roomManager.updateRoomState(roomId, 'results')
     this.roomManager.syncPlayerScores(roomId)
@@ -567,6 +613,7 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.drawer !== socket.id) throw new Error('Only the drawer can reroll')
+    if (room.theme === 'custom') throw new Error('Cannot reroll in custom mode')
 
     const character = this.selectRandomCharacter(room.theme)
     const hint = this.generateHint(character.name)
@@ -577,6 +624,43 @@ export class GameManager {
     // Send new hint to all guessers
     this.io.to(roomId).except(socket.id).emit('reroll', { hint })
     return { success: true, answer: character.name, hint }
+  }
+
+  handleSubmitCustomWord(socket: Socket, roomId: string, word: string): { success: boolean; error?: string } {
+    if (typeof word !== 'string') return { success: false, error: 'Invalid word' }
+    const trimmed = word.trim()
+    if (trimmed.length < 1 || trimmed.length > 16) return { success: false, error: 'Word must be 1-16 characters' }
+    if (!/^[a-zA-Z0-9 ]+$/.test(trimmed)) return { success: false, error: 'Only letters, numbers, and spaces allowed' }
+
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) return { success: false, error: 'Room not found' }
+    if (room.drawer !== socket.id) return { success: false, error: 'Only the drawer can submit a word' }
+    if (room.theme !== 'custom') return { success: false, error: 'Not a custom game' }
+
+    // Clear the word selection timer
+    const wordTimer = this.customWordTimers.get(roomId)
+    if (wordTimer) {
+      clearInterval(wordTimer)
+      this.customWordTimers.delete(roomId)
+    }
+
+    // Set the answer and hint
+    const hint = this.generateHint(trimmed)
+    this.roomManager.setAnswer(roomId, trimmed, hint)
+    console.log(`[Game] Custom word in ${roomId}: "${trimmed}"`)
+
+    // Record start time for scoring
+    this.roundStartTimes.set(roomId, Date.now())
+
+    // Notify drawer their word was accepted
+    this.io.to(socket.id).emit('custom-word-accepted', { answer: trimmed, hint })
+    // Send hint to guessers
+    this.io.to(roomId).except(socket.id).emit('custom-word-accepted', { hint })
+
+    // Start the drawing timer
+    this.startDrawingTimer(roomId)
+
+    return { success: true }
   }
 
   handleSkipTurn(socket: Socket, roomId: string): void {
@@ -611,7 +695,7 @@ export class GameManager {
     if (room.host !== socket.id) throw new Error('Only the host can update settings')
     if (room.state === 'playing') throw new Error('Cannot change settings while game is in progress')
 
-    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
     const validRounds = [3, 5, 8, 10]
     const validDrawTimes = [60, 90, 120]
 

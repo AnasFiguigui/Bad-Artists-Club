@@ -11,6 +11,7 @@ interface BrushControlsProps {
   onClear: () => void
   onUndo: () => void
   isDrawer: boolean
+  themeColor?: string
 }
 
 const COLORS = [
@@ -28,6 +29,7 @@ export function BrushControls({
   onClear,
   onUndo,
   isDrawer,
+  themeColor,
 }: Readonly<BrushControlsProps>) {
   const [activeTool, setActiveTool] = useState<ToolType>('brush')
   const [activeColor, setActiveColor] = useState('#000000')
@@ -63,9 +65,10 @@ export function BrushControls({
           title="Brush"
           className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
             activeTool === 'brush'
-              ? 'bg-indigo-600 text-white'
+              ? 'text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
           }`}
+          style={activeTool === 'brush' ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
         >
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -141,9 +144,10 @@ export function BrushControls({
             title={`Size ${size}`}
             className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center transition-colors ${
               brushSize === size
-                ? 'bg-indigo-500/90 ring-2 ring-indigo-400/80'
+                ? 'ring-2'
                 : 'bg-gray-800 hover:bg-gray-700'
             }`}
+            style={brushSize === size ? { backgroundColor: `${themeColor || '#6366f1'}e6`, boxShadow: `0 0 0 2px ${themeColor || '#818cf8'}cc` } : undefined}
           >
             <svg width="24" height="24" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r={radius} fill={brushSize === size ? 'white' : '#9ca3af'} />

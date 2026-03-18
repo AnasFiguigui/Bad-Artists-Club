@@ -29,6 +29,8 @@ export default function GamePage() {
   const [showReference, setShowReference] = useState(true)
   const [mobilePanel, setMobilePanel] = useState<'canvas' | 'chat' | 'players'>('canvas')
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [customWordInput, setCustomWordInput] = useState('')
+  const [isChoosingWord, setIsChoosingWord] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
   const chatRef = useRef<ChatHandle>(null)
@@ -67,7 +69,7 @@ export default function GamePage() {
 
     // --- Socket event handlers ---
 
-    sock.on('round-start', (updatedRoom: Room) => {
+    sock.on('round-start', (updatedRoom: Room & { customChoosing?: boolean }) => {
       console.log('[Game] round-start received, drawer:', updatedRoom.drawer)
       setRoom(updatedRoom)
       gameStore.setState({ room: updatedRoom })
@@ -75,13 +77,31 @@ export default function GamePage() {
       setMessages([])
       setRoundAnswer(null)
       setCooldown(0)
+      setIsChoosingWord(!!updatedRoom.customChoosing)
+      setCustomWordInput('')
       // Reset brush controls and chat input for new round
       setBrushKey((k) => k + 1)
       chatRef.current?.clearInput()
+      // Reset canvas internal tool state to defaults (syncs with BrushControls remount)
+      canvasRef.current?.setColor('#000000')
+      canvasRef.current?.setSize(5)
+      canvasRef.current?.setTool('brush')
       // Clear canvas for new round
       canvasRef.current?.clear()
       roomLoaded = true
       clearTimeout(roundTimeout)
+    })
+
+    sock.on('choose-word', () => {
+      setIsChoosingWord(true)
+    })
+
+    sock.on('custom-word-accepted', (data: { answer?: string; hint?: string }) => {
+      setIsChoosingWord(false)
+      setRoom((prev) => {
+        if (!prev) return prev
+        return { ...prev, answer: data.answer, hint: data.hint }
+      })
     })
 
     sock.on('round-ended', (data: { answer: string; scores: Record<string, number> }) => {
@@ -224,6 +244,8 @@ export default function GamePage() {
       clearTimeout(roundTimeout)
       sock.off('round-start')
       sock.off('round-ended')
+      sock.off('choose-word')
+      sock.off('custom-word-accepted')
       sock.off('player-joined')
       sock.off('player-left')
       sock.off('timer-update')
@@ -286,7 +308,7 @@ export default function GamePage() {
 
   // Compute canDraw early so hooks below can use it (hooks cannot be called after early return)
   const isCooldown = cooldown > 0
-  const canDraw = gameEnded || (isDrawer && !isCooldown)
+  const canDraw = gameEnded || (isDrawer && !isCooldown && !isChoosingWord)
 
   // Keyboard shortcut: Ctrl+Z for undo
   useEffect(() => {
@@ -310,6 +332,19 @@ export default function GamePage() {
         }
       })
     }
+  }
+
+  const handleSubmitCustomWord = () => {
+    const word = customWordInput.trim()
+    if (!word || word.length > 16 || !socket || !roomId) return
+    socket.emit('submit-custom-word', { roomId, word }, (response: { success: boolean; error?: string }) => {
+      if (response.success) {
+        setIsChoosingWord(false)
+      } else {
+        setNotification(response.error || 'Failed to submit word')
+        setTimeout(() => setNotification(null), 3000)
+      }
+    })
   }
 
   const handleSkipTurn = () => {
@@ -383,11 +418,13 @@ export default function GamePage() {
         isHost={isHost}
         gameEnded={gameEnded}
         onEditSettings={() => setShowSettingsModal(true)}
+        themeColor={themeColors.primary}
+        isChoosingWord={isChoosingWord}
       />
 
       {/* Floating toast notifications */}
       {notification && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-indigo-600/80 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-slide-down">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
           {notification}
         </div>
       )}
@@ -405,9 +442,10 @@ export default function GamePage() {
             onClick={() => setMobilePanel(tab)}
             className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${
               mobilePanel === tab
-                ? 'text-indigo-400 border-b-2 border-indigo-400'
+                ? 'border-b-2'
                 : 'text-gray-500 hover:text-gray-300'
             }`}
+            style={mobilePanel === tab ? { color: themeColors.primary, borderColor: themeColors.primary } : undefined}
           >
             {{ canvas: '🎨 Draw', players: '👥 Players', chat: '💬 Chat' }[tab]}
           </button>
@@ -463,8 +501,8 @@ export default function GamePage() {
           {/* Drawer tools: Reference image + action buttons (only when drawing, not in free draw) */}
           {isDrawer && !gameEnded && (
             <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
-              {/* Reference image placeholder */}
-              {showReference && (
+              {/* Reference image placeholder (hidden for custom theme) */}
+              {showReference && room.theme !== 'custom' && (
                 <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
                   <div className="text-center text-gray-500 p-2">
                     <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -476,16 +514,18 @@ export default function GamePage() {
               )}
               {/* Action buttons */}
               <div className="flex gap-1">
-                <button
-                  onClick={handleReroll}
-                  title="Reroll word"
-                  className="flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300 transition-colors text-[10px] font-medium"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reroll
-                </button>
+                {room.theme !== 'custom' && (
+                  <button
+                    onClick={handleReroll}
+                    title="Reroll word"
+                    className="flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300 transition-colors text-[10px] font-medium"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reroll
+                  </button>
+                )}
                 <button
                   onClick={handleSkipTurn}
                   title="Skip turn"
@@ -496,14 +536,16 @@ export default function GamePage() {
                   </svg>
                   Skip
                 </button>
+                {room.theme !== 'custom' && (
                 <button
                   onClick={() => setShowReference(!showReference)}
                   title={showReference ? 'Hide reference' : 'Show reference'}
                   className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
                     showReference
-                      ? 'bg-indigo-600/50 text-indigo-300 hover:bg-indigo-700/50'
+                      ? 'text-white'
                       : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
                   }`}
+                  style={showReference ? { backgroundColor: `${themeColors.primary}80` } : undefined}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     {showReference ? (
@@ -514,6 +556,7 @@ export default function GamePage() {
                   </svg>
                   {showReference ? 'Hide' : 'Show'}
                 </button>
+                )}
               </div>
             </div>
           )}
@@ -568,6 +611,7 @@ export default function GamePage() {
                 onClear={handleClearCanvas}
                 onUndo={handleUndo}
                 isDrawer={canDraw}
+                themeColor={themeColors.primary}
               />
             </div>
           )}
@@ -585,6 +629,7 @@ export default function GamePage() {
               messages={messages}
               onSendMessage={handleSendMessage}
               roomId={roomId}
+              themeColor={themeColors.primary}
             />
           )}
         </div>
@@ -623,6 +668,8 @@ export default function GamePage() {
                   <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
                   <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
                   <option value="game-titles" className="bg-gray-900">Game Titles</option>
+                  <option value="anime" className="bg-gray-900">Anime</option>
+                  <option value="custom" className="bg-gray-900">Custom</option>
                 </select>
               </div>
               <div>
@@ -664,6 +711,55 @@ export default function GamePage() {
             )}
           </div>
         </dialog>
+      )}
+
+      {/* Custom Word Choosing Modal */}
+      {isChoosingWord && isDrawer && (
+        <dialog
+          open
+          aria-label="Choose a word"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm m-0 w-full h-full border-none"
+        >
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4">
+            <h2 className="text-lg font-bold text-white text-center mb-1">Choose a Word</h2>
+            <p className="text-gray-400 text-xs text-center mb-4">
+              Type a word for others to guess (max 16 characters)
+            </p>
+            <div className="text-center mb-3">
+              <span className="font-bold text-2xl tabular-nums" style={{ color: themeColors.primary }}>{timeRemaining}s</span>
+            </div>
+            <input
+              type="text"
+              value={customWordInput}
+              onChange={(e) => {
+                if (e.target.value.length <= 16) setCustomWordInput(e.target.value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmitCustomWord()
+              }}
+              placeholder="Enter your word..."
+              maxLength={16}
+              autoFocus
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 backdrop-blur-sm transition-colors mb-1"
+            />
+            <p className="text-gray-500 text-xs text-right mb-3">{customWordInput.length}/16</p>
+            <button
+              onClick={handleSubmitCustomWord}
+              disabled={!customWordInput.trim()}
+              className="w-full py-2.5 text-white rounded-lg font-bold transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110"
+              style={{ backgroundColor: themeColors.primary }}
+            >
+              Confirm Word
+            </button>
+          </div>
+        </dialog>
+      )}
+
+      {/* Waiting for drawer to choose (guessers see this) */}
+      {isChoosingWord && !isDrawer && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
+          ✏️ Drawer is choosing a word...
+        </div>
       )}
     </div>
   )

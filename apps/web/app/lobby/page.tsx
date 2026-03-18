@@ -197,6 +197,8 @@ export default function LobbyPage() {
                   <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
                   <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
                   <option value="game-titles" className="bg-gray-900">🎮 Game Titles</option>
+                  <option value="anime" className="bg-gray-900">🌸 Anime</option>
+                  <option value="custom" className="bg-gray-900">✏️ Custom</option>
                 </select>
               </div>
 
