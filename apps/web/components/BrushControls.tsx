@@ -275,7 +275,7 @@ export function BrushControls({
       {showReactions && (
         <>
           <div className="flex-1" />
-          <div className="w-px h-8 bg-gray-700 hidden sm:block" />
+          {/* <div className="w-px h-8 bg-gray-700 hidden sm:block" /> */}
           <div className="flex items-center gap-1">
             <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
               <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>

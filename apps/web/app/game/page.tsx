@@ -850,7 +850,7 @@ export default function GamePage() {
               />
             </div>
           )}
-
+          
           {/* Guesser reaction buttons (below canvas, centered) */}
           {showReactions && !isDrawer && !canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2 flex justify-center">
