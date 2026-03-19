@@ -12,6 +12,130 @@ import { PlayerLeaderboard } from '@/components/PlayerLeaderboard'
 import { BrushControls } from '@/components/BrushControls'
 import { getThemeConfig } from '@/lib/themeConfig'
 
+function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, onEndGame }: Readonly<{
+  room: Room
+  gameEnded: boolean
+  themeColor: string
+  onClose: () => void
+  onApply: (settings: { theme?: string; rounds?: number; drawTime?: number }) => void
+  onEndGame: () => void
+}>) {
+  const [pendingTheme, setPendingTheme] = useState(room.theme)
+  const [pendingRounds, setPendingRounds] = useState(room.totalRounds)
+  const [pendingDrawTime, setPendingDrawTime] = useState(room.drawTime)
+
+  const hasChanges = pendingTheme !== room.theme || pendingRounds !== room.totalRounds || pendingDrawTime !== room.drawTime
+
+  const handleApply = () => {
+    const settings: { theme?: string; rounds?: number; drawTime?: number } = {}
+    if (pendingTheme !== room.theme) settings.theme = pendingTheme
+    if (pendingRounds !== room.totalRounds) settings.rounds = pendingRounds
+    if (pendingDrawTime !== room.drawTime) settings.drawTime = pendingDrawTime
+    onApply(settings)
+    onClose()
+  }
+
+  return (
+    <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose() }} role="presentation">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-bold text-white">Game Settings</h2>
+        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="space-y-3">
+        {!gameEnded && (
+          <p className="text-yellow-300 text-xs italic">Settings can only be changed after the game ends.</p>
+        )}
+        <div>
+          <span className="text-xs text-gray-300 block mb-1">Theme</span>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { value: 'lol', label: '⚔️ LoL' },
+              { value: 'elden-ring', label: '🗡️ Elden Ring' },
+              { value: 'dbd', label: '🔪 DbD' },
+              { value: 'game-titles', label: '🎮 Games' },
+              { value: 'anime', label: '🌸 Anime' },
+              { value: 'custom', label: '✏️ Custom' },
+            ].map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setPendingTheme(t.value as Room['theme'])}
+                disabled={!gameEnded}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                  pendingTheme === t.value
+                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                } border disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-300 block mb-1">Rounds</span>
+          <div className="flex gap-1.5">
+            {[3, 5, 8, 10].map((r) => (
+              <button
+                key={r}
+                onClick={() => setPendingRounds(r)}
+                disabled={!gameEnded}
+                className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  pendingRounds === r
+                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                } border disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <span className="text-xs text-gray-300 block mb-1">Draw Time</span>
+          <div className="flex flex-wrap gap-1.5">
+            {[60, 90, 120, 150, 180, 240].map((t) => (
+              <button
+                key={t}
+                onClick={() => setPendingDrawTime(t)}
+                disabled={!gameEnded}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                  pendingDrawTime === t
+                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                } border disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {t}s
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {gameEnded && (
+        <button
+          onClick={handleApply}
+          disabled={!hasChanges}
+          className="w-full mt-4 py-2 text-white rounded-lg font-bold backdrop-blur-sm transition-colors text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:brightness-110"
+          style={{ backgroundColor: hasChanges ? themeColor : undefined }}
+        >
+          Apply
+        </button>
+      )}
+      {!gameEnded && (
+        <button
+          onClick={onEndGame}
+          className="w-full mt-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-100 rounded-lg font-bold backdrop-blur-sm transition-colors text-sm"
+        >
+          End Game
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function GamePage() {
   const router = useRouter()
   const { username, roomId } = gameStore()
@@ -34,10 +158,14 @@ export default function GamePage() {
   const [likes, setLikes] = useState(0)
   const [dislikes, setDislikes] = useState(0)
   const [hasVoted, setHasVoted] = useState(false)
+  const [voteType, setVoteType] = useState<'like' | 'dislike' | null>(null)
+  const [voteAnimating, setVoteAnimating] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
   const chatRef = useRef<ChatHandle>(null)
   const [brushKey, setBrushKey] = useState(0)
+  const [currentBrushSize, setCurrentBrushSize] = useState(5)
+  const [currentTool, setCurrentTool] = useState<'brush' | 'eraser' | 'fill' | 'line' | 'oval' | 'rect' | 'roundedRect' | 'triangle' | 'callout'>('brush')
 
   const updateRoomHost = useCallback((newHostId: string) => {
     setRoom((prev) => {
@@ -85,6 +213,8 @@ export default function GamePage() {
       setLikes(0)
       setDislikes(0)
       setHasVoted(false)
+      setVoteType(null)
+      setVoteAnimating(false)
       // Reset brush controls and chat input for new round
       setBrushKey((k) => k + 1)
       chatRef.current?.clearInput()
@@ -336,13 +466,62 @@ export default function GamePage() {
   // Compute canDraw early so hooks below can use it (hooks cannot be called after early return)
   const isCooldown = cooldown > 0
   const canDraw = gameEnded || (isDrawer && !isCooldown && !isChoosingWord)
+  const showReactions = !gameEnded && !isCooldown && room?.state === 'playing' && !!room?.drawer
 
-  // Keyboard shortcut: Ctrl+Z for undo
+  const BRUSH_SIZES = [2, 5, 10, 18, 30] as const
+
+  const handleCanvasWheel = useCallback((e: React.WheelEvent) => {
+    if (!canDraw) return
+    e.preventDefault()
+    setCurrentBrushSize((prev) => {
+      const idx = BRUSH_SIZES.indexOf(prev as typeof BRUSH_SIZES[number])
+      const currentIdx = idx === -1 ? 1 : idx // default to size 5 (index 1)
+      const newIdx = e.deltaY < 0
+        ? Math.min(currentIdx + 1, BRUSH_SIZES.length - 1)
+        : Math.max(currentIdx - 1, 0)
+      const newSize = BRUSH_SIZES[newIdx]
+      canvasRef.current?.setSize(newSize)
+      return newSize
+    })
+  }, [canDraw])
+
+  // Keyboard shortcuts: Ctrl+Z undo, B brush, F fill, E eraser, Del clear
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+Z for undo (works even when input focused)
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
         if (canDraw) handleUndo()
+        return
+      }
+
+      // Escape closes settings modal
+      if (e.key === 'Escape') {
+        setShowSettingsModal(false)
+        return
+      }
+
+      // Skip tool shortcuts if typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (!canDraw) return
+
+      switch (e.key.toLowerCase()) {
+        case 'b':
+          canvasRef.current?.setTool('brush')
+          setCurrentTool('brush')
+          break
+        case 'f':
+          canvasRef.current?.setTool('fill')
+          setCurrentTool('fill')
+          break
+        case 'e':
+          canvasRef.current?.setTool('eraser')
+          setCurrentTool('eraser')
+          break
+        case 'delete':
+          handleClearCanvas()
+          break
       }
     }
     globalThis.addEventListener('keydown', handleKeyDown)
@@ -384,6 +563,9 @@ export default function GamePage() {
     if (socket && roomId && !hasVoted && !isDrawer) {
       socket.emit('vote-reaction', { roomId, type })
       setHasVoted(true)
+      setVoteType(type)
+      setVoteAnimating(true)
+      setTimeout(() => setVoteAnimating(false), 400)
     }
   }
 
@@ -455,11 +637,6 @@ export default function GamePage() {
         themeColor={themeColors.primary}
         isChoosingWord={isChoosingWord}
         themeName={themeConfig.name}
-        likes={likes}
-        dislikes={dislikes}
-        hasVoted={hasVoted}
-        showReactions={!gameEnded && !isCooldown && room.state === 'playing' && !!room.drawer}
-        onVote={handleVoteReaction}
       />
 
       {/* Floating toast notifications */}
@@ -640,7 +817,7 @@ export default function GamePage() {
         <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Canvas area */}
           <div className="flex-1 flex items-center justify-center p-2 sm:p-3 min-h-0 animate-fade-in">
-            <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }}>
+            <div className="w-full max-h-full" style={{ aspectRatio: '16/9' }} onWheel={handleCanvasWheel}>
               {roomId && (
                 <Canvas
                   ref={canvasRef}
@@ -653,19 +830,69 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Brush controls bar */}
+          {/* Brush controls bar + reactions for drawer */}
           {canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2 animate-slide-up">
-              <BrushControls
-                key={brushKey}
-                onColorChange={(color) => canvasRef.current?.setColor(color)}
-                onSizeChange={(size) => canvasRef.current?.setSize(size)}
-                onToolChange={(tool) => canvasRef.current?.setTool(tool)}
-                onClear={handleClearCanvas}
-                onUndo={handleUndo}
-                isDrawer={canDraw}
-                themeColor={themeColors.primary}
-              />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <BrushControls
+                    key={brushKey}
+                    onColorChange={(color) => canvasRef.current?.setColor(color)}
+                    onSizeChange={(size) => { canvasRef.current?.setSize(size); setCurrentBrushSize(size) }}
+                    onToolChange={(tool) => { canvasRef.current?.setTool(tool); setCurrentTool(tool) }}
+                    onClear={handleClearCanvas}
+                    onUndo={handleUndo}
+                    isDrawer={canDraw}
+                    themeColor={themeColors.primary}
+                    externalSize={currentBrushSize}
+                    externalTool={currentTool}
+                  />
+                </div>
+                {/* Drawer sees reaction counters */}
+                {showReactions && isDrawer && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                    </span>
+                    <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Guesser reaction buttons (below canvas, right-aligned) */}
+          {showReactions && !isDrawer && !canDraw && (
+            <div className="shrink-0 px-2 sm:px-3 pb-2 flex justify-end">
+              <div className="flex items-center gap-1">
+                {hasVoted ? (
+                  <>
+                    <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'like' ? 'bg-green-900/40 ring-1 ring-green-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'like' ? 'animate-vote-bounce' : ''}`}>
+                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                    </span>
+                    <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'dislike' ? 'bg-red-900/40 ring-1 ring-red-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'dislike' ? 'animate-vote-bounce' : ''}`}>
+                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleVoteReaction('like')}
+                      className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-green-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
+                    >
+                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                    </button>
+                    <button
+                      onClick={() => handleVoteReaction('dislike')}
+                      className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
+                    >
+                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -690,99 +917,21 @@ export default function GamePage() {
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <dialog
-          open
-          aria-label="Game Settings"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm m-0 w-full h-full border-none"
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false) }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setShowSettingsModal(false) }}
+          role="presentation"
         >
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">Game Settings</h2>
-              <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-white transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="space-y-3">
-              {!gameEnded && (
-                <p className="text-yellow-300 text-xs italic">Settings can only be changed after the game ends.</p>
-              )}
-              <div>
-                <span className="text-xs text-gray-300 block mb-1">Theme</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { value: 'lol', label: '⚔️ LoL' },
-                    { value: 'elden-ring', label: '🗡️ Elden Ring' },
-                    { value: 'dbd', label: '🔪 DbD' },
-                    { value: 'game-titles', label: '🎮 Games' },
-                    { value: 'anime', label: '🌸 Anime' },
-                    { value: 'custom', label: '✏️ Custom' },
-                  ].map((t) => (
-                    <button
-                      key={t.value}
-                      onClick={() => handleUpdateSettings({ theme: t.value })}
-                      disabled={!gameEnded}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        room.theme === t.value
-                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
-                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-300 block mb-1">Rounds</span>
-                <div className="flex gap-1.5">
-                  {[3, 5, 8, 10].map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => handleUpdateSettings({ rounds: r })}
-                      disabled={!gameEnded}
-                      className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                        room.totalRounds === r
-                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
-                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-gray-300 block mb-1">Draw Time</span>
-                <div className="flex gap-1.5">
-                  {[60, 90, 120].map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => handleUpdateSettings({ drawTime: t })}
-                      disabled={!gameEnded}
-                      className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                        room.drawTime === t
-                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
-                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {t}s
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {!gameEnded && (
-              <button
-                onClick={() => { handleEndGame(); setShowSettingsModal(false) }}
-                className="w-full mt-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-100 rounded-lg font-bold backdrop-blur-sm transition-colors text-sm"
-              >
-                End Game
-              </button>
-            )}
-          </div>
-        </dialog>
+          <SettingsModalContent
+            room={room}
+            gameEnded={gameEnded}
+            themeColor={themeColors.primary}
+            onClose={() => setShowSettingsModal(false)}
+            onApply={handleUpdateSettings}
+            onEndGame={() => { handleEndGame(); setShowSettingsModal(false) }}
+          />
+        </div>
       )}
 
       {/* Custom Word Choosing Modal */}

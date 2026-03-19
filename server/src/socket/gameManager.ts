@@ -115,7 +115,7 @@ export class GameManager {
 
     // Validate GameConfig
     const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
-    const validDrawTimes = [60, 90, 120]
+    const validDrawTimes = [60, 90, 120, 150, 180, 240]
     if (!data.config || typeof data.config !== 'object') throw new Error('Invalid config')
     if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
     if (typeof data.config.rounds !== 'number' || data.config.rounds < 1 || data.config.rounds > 10) throw new Error('Invalid rounds')
@@ -720,7 +720,7 @@ export class GameManager {
 
     const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
     const validRounds = [3, 5, 8, 10]
-    const validDrawTimes = [60, 90, 120]
+    const validDrawTimes = [60, 90, 120, 150, 180, 240]
 
     if (settings.theme && validThemes.includes(settings.theme)) {
       room.theme = settings.theme as Room['theme']

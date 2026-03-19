@@ -8,6 +8,102 @@ import { Room } from '@/lib/types'
 import { Grainient } from '@/components/Grainient'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
+function SettingsForm({ room, onApply }: Readonly<{ room: Room; onApply: (settings: { theme?: string; rounds?: number; drawTime?: number }) => void }>) {
+  const [pendingTheme, setPendingTheme] = useState(room.theme)
+  const [pendingRounds, setPendingRounds] = useState(room.totalRounds)
+  const [pendingDrawTime, setPendingDrawTime] = useState(room.drawTime)
+
+  // Sync with server updates
+  useEffect(() => {
+    setPendingTheme(room.theme)
+    setPendingRounds(room.totalRounds)
+    setPendingDrawTime(room.drawTime)
+  }, [room.theme, room.totalRounds, room.drawTime])
+
+  const hasChanges = pendingTheme !== room.theme || pendingRounds !== room.totalRounds || pendingDrawTime !== room.drawTime
+
+  const handleApply = () => {
+    const settings: { theme?: string; rounds?: number; drawTime?: number } = {}
+    if (pendingTheme !== room.theme) settings.theme = pendingTheme
+    if (pendingRounds !== room.totalRounds) settings.rounds = pendingRounds
+    if (pendingDrawTime !== room.drawTime) settings.drawTime = pendingDrawTime
+    onApply(settings)
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</span>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { value: 'lol', label: '⚔️ LoL' },
+            { value: 'elden-ring', label: '🗡️ Elden Ring' },
+            { value: 'dbd', label: '🔪 DbD' },
+            { value: 'game-titles', label: '🎮 Games' },
+            { value: 'anime', label: '🌸 Anime' },
+            { value: 'custom', label: '✏️ Custom' },
+          ].map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setPendingTheme(t.value as Room['theme'])}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                pendingTheme === t.value
+                  ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+              } border`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</span>
+        <div className="flex gap-2">
+          {[3, 5, 8, 10].map((r) => (
+            <button
+              key={r}
+              onClick={() => setPendingRounds(r)}
+              className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                pendingRounds === r
+                  ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+              } border`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</span>
+        <div className="flex flex-wrap gap-2">
+          {[60, 90, 120, 150, 180, 240].map((t) => (
+            <button
+              key={t}
+              onClick={() => setPendingDrawTime(t)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                pendingDrawTime === t
+                  ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+              } border`}
+            >
+              {t}s
+            </button>
+          ))}
+        </div>
+      </div>
+      <button
+        onClick={handleApply}
+        disabled={!hasChanges}
+        className="w-full bg-gradient-to-r from-purple-500/30 to-purple-600/30 hover:from-purple-500/40 hover:to-purple-600/40 border border-purple-400/50 text-purple-100 hover:text-purple-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-purple-500/25 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Apply
+      </button>
+    </div>
+  )
+}
+
 export default function RoomPage() {
   const router = useRouter()
   const params = useParams()
@@ -250,69 +346,7 @@ export default function RoomPage() {
               ⚙️ Game Settings
             </h2>
             {isHost ? (
-              <div className="space-y-5">
-                <div>
-                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</span>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { value: 'lol', label: '⚔️ LoL' },
-                      { value: 'elden-ring', label: '🗡️ Elden Ring' },
-                      { value: 'dbd', label: '🔪 DbD' },
-                      { value: 'game-titles', label: '🎮 Games' },
-                      { value: 'anime', label: '🌸 Anime' },
-                      { value: 'custom', label: '✏️ Custom' },
-                    ].map((t) => (
-                      <button
-                        key={t.value}
-                        onClick={() => handleUpdateSettings({ theme: t.value })}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                          room.theme === t.value
-                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
-                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                        } border`}
-                      >
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</span>
-                  <div className="flex gap-2">
-                    {[3, 5, 8, 10].map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => handleUpdateSettings({ rounds: r })}
-                        className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
-                          room.totalRounds === r
-                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
-                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                        } border`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</span>
-                  <div className="flex gap-2">
-                    {[60, 90, 120].map((t) => (
-                      <button
-                        key={t}
-                        onClick={() => handleUpdateSettings({ drawTime: t })}
-                        className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
-                          room.drawTime === t
-                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
-                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
-                        } border`}
-                      >
-                        {t}s
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <SettingsForm room={room} onApply={handleUpdateSettings} />
             ) : (
               <div className="space-y-4 text-white/70">
                 <div className="flex justify-between items-center py-3 px-3 bg-white/5 rounded-lg border border-white/10">
@@ -338,7 +372,7 @@ export default function RoomPage() {
               👥 Players ({room.players.length})
             </h2>
 
-            <div className="space-y-3 mb-6">
+            <div className="space-y-3 mb-6 max-h-[21.25rem] overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {room.players.map((player) => (
                 <div
                   key={player.id}
@@ -350,9 +384,26 @@ export default function RoomPage() {
                     {player.isHost && <span className="text-lg">👑</span>}
                     {player.id === socket?.id && <span className="text-xs text-blue-300 font-medium">(you)</span>}
                   </div>
-                  <span className={`text-xs font-bold transition-colors ${player.ready ? 'text-emerald-300' : 'text-gray-500'}`}>
-                    {player.ready ? '✓ Ready' : 'Waiting...'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold transition-colors ${player.ready ? 'text-emerald-300' : 'text-gray-500'}`}>
+                      {player.ready ? '✓ Ready' : 'Waiting...'}
+                    </span>
+                    {isHost && player.id !== socket?.id && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Kick ${player.username}?`)) {
+                            socket?.emit('kick-player', { roomId, targetId: player.id }, () => {})
+                          }
+                        }}
+                        title={`Kick ${player.username}`}
+                        className="p-1 rounded text-red-400/60 hover:text-red-300 hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

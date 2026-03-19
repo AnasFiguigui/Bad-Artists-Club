@@ -54,7 +54,7 @@ export interface ChatMessage {
 export interface GameConfig {
   theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles' | 'anime' | 'custom'
   rounds: 3 | 5 | 8 | 10
-  drawTime: 60 | 90 | 120
+  drawTime: 60 | 90 | 120 | 150 | 180 | 240
   maxPlayers: number
 }
 

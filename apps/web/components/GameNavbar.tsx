@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface GameNavbarProps {
   roomId: string
@@ -22,11 +23,6 @@ interface GameNavbarProps {
   themeColor?: string
   isChoosingWord?: boolean
   themeName?: string
-  likes?: number
-  dislikes?: number
-  hasVoted?: boolean
-  showReactions?: boolean
-  onVote?: (type: 'like' | 'dislike') => void
 }
 
 function getTimerColorNav(timerPercent: number): string {
@@ -74,17 +70,12 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
     muted,
     onToggleMute,
     isHost,
-    isDrawer,
     gameEnded,
     onEditSettings,
     themeColor,
     themeName,
-    likes = 0,
-    dislikes = 0,
-    hasVoted,
-    showReactions,
-    onVote,
   } = props
+  const router = useRouter()
   const [copied, setCopied] = useState(false)
 
   const handleCopyLink = () => {
@@ -101,9 +92,9 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
     <nav className="flex items-center justify-between bg-gray-900/90 border-b px-2 sm:px-4 h-12 sm:h-14 shrink-0" style={{ borderColor: `${themeColor || '#6366f1'}80` }}>
       {/* Left: Logo + Round info */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-        <div className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0">
+        <button onClick={() => router.push('/')} className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0 hover:opacity-80 transition-opacity" title="Home">
           <img src="/images/logo-bac-txt-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
-        </div>
+        </button>
         <div className="text-xs hidden md:block font-medium text-white">
           {themeName || 'Bad Artists Club'}
         </div>
@@ -117,37 +108,8 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
         </div>
       </div>
 
-      {/* Right: Reactions + Invite + Volume */}
+      {/* Right: Invite + Volume */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {showReactions && (
-          <div className="flex items-center gap-1 mr-1">
-            {isDrawer || hasVoted ? (
-              <>
-                <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
-                  <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
-                </span>
-                <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
-                  <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
-                </span>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => onVote?.('like')}
-                  className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 hover:bg-green-900/40 rounded-lg text-sm transition-colors"
-                >
-                  <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
-                </button>
-                <button
-                  onClick={() => onVote?.('dislike')}
-                  className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm transition-colors"
-                >
-                  <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
-                </button>
-              </>
-            )}
-          </div>
-        )}
         <button
           onClick={handleCopyLink}
           title="Copy invite link"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 type ToolType = 'brush' | 'eraser' | 'fill' | 'line' | 'oval' | 'rect' | 'roundedRect' | 'triangle' | 'callout'
 
@@ -39,6 +39,8 @@ interface BrushControlsProps {
   onUndo: () => void
   isDrawer: boolean
   themeColor?: string
+  externalSize?: number
+  externalTool?: ToolType
 }
 
 const COLORS = [
@@ -60,11 +62,26 @@ export function BrushControls({
   onUndo,
   isDrawer,
   themeColor,
+  externalSize,
+  externalTool,
 }: Readonly<BrushControlsProps>) {
-  const [activeTool, setActiveTool] = useState<ToolType>('brush')
+  const [activeTool, setActiveTool] = useState<ToolType>(externalTool || 'brush')
   const [activeColor, setActiveColor] = useState('#000000')
-  const [brushSize, setBrushSize] = useState(5)
+  const [brushSize, setBrushSize] = useState(externalSize || 5)
   const colorPickerRef = useRef<HTMLInputElement>(null)
+
+  // Sync external size/tool changes (e.g. from mouse wheel or keyboard shortcuts)
+  useEffect(() => {
+    if (externalSize !== undefined && externalSize !== brushSize) {
+      setBrushSize(externalSize)
+    }
+  }, [externalSize])
+
+  useEffect(() => {
+    if (externalTool !== undefined && externalTool !== activeTool) {
+      setActiveTool(externalTool)
+    }
+  }, [externalTool])
 
   if (!isDrawer) return null
 
