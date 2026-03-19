@@ -36,7 +36,7 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
   }
 
   return (
-    <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose() }} role="presentation">
+    <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 shadow-2xl w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-white">Game Settings</h2>
         <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
@@ -830,42 +830,30 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Brush controls bar + reactions for drawer */}
+          {/* Brush controls bar (reactions inside for drawer) */}
           {canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2 animate-slide-up">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <BrushControls
-                    key={brushKey}
-                    onColorChange={(color) => canvasRef.current?.setColor(color)}
-                    onSizeChange={(size) => { canvasRef.current?.setSize(size); setCurrentBrushSize(size) }}
-                    onToolChange={(tool) => { canvasRef.current?.setTool(tool); setCurrentTool(tool) }}
-                    onClear={handleClearCanvas}
-                    onUndo={handleUndo}
-                    isDrawer={canDraw}
-                    themeColor={themeColors.primary}
-                    externalSize={currentBrushSize}
-                    externalTool={currentTool}
-                  />
-                </div>
-                {/* Drawer sees reaction counters */}
-                {showReactions && isDrawer && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
-                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
-                    </span>
-                    <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
-                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
+              <BrushControls
+                key={brushKey}
+                onColorChange={(color) => canvasRef.current?.setColor(color)}
+                onSizeChange={(size) => { canvasRef.current?.setSize(size); setCurrentBrushSize(size) }}
+                onToolChange={(tool) => { canvasRef.current?.setTool(tool); setCurrentTool(tool) }}
+                onClear={handleClearCanvas}
+                onUndo={handleUndo}
+                isDrawer={canDraw}
+                themeColor={themeColors.primary}
+                externalSize={currentBrushSize}
+                externalTool={currentTool}
+                likes={likes}
+                dislikes={dislikes}
+                showReactions={showReactions && isDrawer}
+              />
             </div>
           )}
 
-          {/* Guesser reaction buttons (below canvas, right-aligned) */}
+          {/* Guesser reaction buttons (below canvas, centered) */}
           {showReactions && !isDrawer && !canDraw && (
-            <div className="shrink-0 px-2 sm:px-3 pb-2 flex justify-end">
+            <div className="shrink-0 px-2 sm:px-3 pb-2 flex justify-center">
               <div className="flex items-center gap-1">
                 {hasVoted ? (
                   <>
@@ -920,8 +908,6 @@ export default function GamePage() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           onClick={(e) => { if (e.target === e.currentTarget) setShowSettingsModal(false) }}
-          onKeyDown={(e) => { if (e.key === 'Escape') setShowSettingsModal(false) }}
-          role="presentation"
         >
           <SettingsModalContent
             room={room}

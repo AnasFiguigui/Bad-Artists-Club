@@ -41,6 +41,9 @@ interface BrushControlsProps {
   themeColor?: string
   externalSize?: number
   externalTool?: ToolType
+  likes?: number
+  dislikes?: number
+  showReactions?: boolean
 }
 
 const COLORS = [
@@ -64,6 +67,9 @@ export function BrushControls({
   themeColor,
   externalSize,
   externalTool,
+  likes = 0,
+  dislikes = 0,
+  showReactions,
 }: Readonly<BrushControlsProps>) {
   const [activeTool, setActiveTool] = useState<ToolType>(externalTool || 'brush')
   const [activeColor, setActiveColor] = useState('#000000')
@@ -264,6 +270,22 @@ export function BrushControls({
           </button>
         ))}
       </div>
+
+      {/* Reaction counters (drawer only, right corner) */}
+      {showReactions && (
+        <>
+          <div className="flex-1" />
+          <div className="w-px h-8 bg-gray-700 hidden sm:block" />
+          <div className="flex items-center gap-1">
+            <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+              <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+            </span>
+            <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+              <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+            </span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
