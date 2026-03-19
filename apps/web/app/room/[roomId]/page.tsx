@@ -252,46 +252,65 @@ export default function RoomPage() {
             {isHost ? (
               <div className="space-y-5">
                 <div>
-                  <label htmlFor="room-theme" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</label>
-                  <select
-                    id="room-theme"
-                    value={room.theme}
-                    onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
-                  >
-                    <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
-                    <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
-                    <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
-                    <option value="game-titles" className="bg-gray-900">🎮 Game Titles</option>
-                    <option value="anime" className="bg-gray-900">🌸 Anime</option>
-                    <option value="custom" className="bg-gray-900">✏️ Custom</option>
-                  </select>
+                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</span>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: 'lol', label: '⚔️ LoL' },
+                      { value: 'elden-ring', label: '🗡️ Elden Ring' },
+                      { value: 'dbd', label: '🔪 DbD' },
+                      { value: 'game-titles', label: '🎮 Games' },
+                      { value: 'anime', label: '🌸 Anime' },
+                      { value: 'custom', label: '✏️ Custom' },
+                    ].map((t) => (
+                      <button
+                        key={t.value}
+                        onClick={() => handleUpdateSettings({ theme: t.value })}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                          room.theme === t.value
+                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                        } border`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div>
-                  <label htmlFor="room-rounds" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</label>
-                  <select
-                    id="room-rounds"
-                    value={room.totalRounds}
-                    onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
-                  >
+                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Rounds</span>
+                  <div className="flex gap-2">
                     {[3, 5, 8, 10].map((r) => (
-                      <option key={r} value={r} className="bg-gray-900">{r} rounds</option>
+                      <button
+                        key={r}
+                        onClick={() => handleUpdateSettings({ rounds: r })}
+                        className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                          room.totalRounds === r
+                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                        } border`}
+                      >
+                        {r}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div>
-                  <label htmlFor="room-drawtime" className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</label>
-                  <select
-                    id="room-drawtime"
-                    value={room.drawTime}
-                    onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
-                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 backdrop-blur-sm transition-colors cursor-pointer hover:border-white/30"
-                  >
+                  <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Draw Time</span>
+                  <div className="flex gap-2">
                     {[60, 90, 120].map((t) => (
-                      <option key={t} value={t} className="bg-gray-900">{t} seconds</option>
+                      <button
+                        key={t}
+                        onClick={() => handleUpdateSettings({ drawTime: t })}
+                        className={`flex-1 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${
+                          room.drawTime === t
+                            ? 'bg-purple-500/40 border-purple-400/60 text-white shadow-lg shadow-purple-500/20'
+                            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                        } border`}
+                      >
+                        {t}s
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
               </div>
             ) : (

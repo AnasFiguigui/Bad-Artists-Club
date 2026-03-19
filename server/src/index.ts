@@ -278,6 +278,16 @@ io.on('connection', (socket: Socket) => {
     }
   })
 
+  socket.on('vote-reaction', (data: { roomId: string; type: string }) => {
+    if (!rateLimit(socket.id, 'vote-reaction', 2, 5000)) return
+    if (!isValidRoomId(data.roomId)) return
+    try {
+      gameManager.handleVoteReaction(socket, data.roomId, data.type)
+    } catch (error) {
+      console.error('[Vote] Error:', error)
+    }
+  })
+
   socket.on('leave-room', () => {
     gameManager.handleLeaveRoom(socket)
   })

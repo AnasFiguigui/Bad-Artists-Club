@@ -22,6 +22,11 @@ interface GameNavbarProps {
   themeColor?: string
   isChoosingWord?: boolean
   themeName?: string
+  likes?: number
+  dislikes?: number
+  hasVoted?: boolean
+  showReactions?: boolean
+  onVote?: (type: 'like' | 'dislike') => void
 }
 
 function getTimerColorNav(timerPercent: number): string {
@@ -69,10 +74,16 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
     muted,
     onToggleMute,
     isHost,
+    isDrawer,
     gameEnded,
     onEditSettings,
     themeColor,
     themeName,
+    likes = 0,
+    dislikes = 0,
+    hasVoted,
+    showReactions,
+    onVote,
   } = props
   const [copied, setCopied] = useState(false)
 
@@ -106,8 +117,37 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
         </div>
       </div>
 
-      {/* Right: Invite + Volume */}
+      {/* Right: Reactions + Invite + Volume */}
       <div className="flex items-center gap-1 sm:gap-2">
+        {showReactions && (
+          <div className="flex items-center gap-1 mr-1">
+            {isDrawer || hasVoted ? (
+              <>
+                <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+                  <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                </span>
+                <span className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 rounded-lg text-sm">
+                  <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => onVote?.('like')}
+                  className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 hover:bg-green-900/40 rounded-lg text-sm transition-colors"
+                >
+                  <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                </button>
+                <button
+                  onClick={() => onVote?.('dislike')}
+                  className="flex items-center gap-0.5 px-2 py-1 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm transition-colors"
+                >
+                  <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
         <button
           onClick={handleCopyLink}
           title="Copy invite link"

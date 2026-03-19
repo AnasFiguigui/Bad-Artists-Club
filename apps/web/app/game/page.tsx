@@ -31,6 +31,9 @@ export default function GamePage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [customWordInput, setCustomWordInput] = useState('')
   const [isChoosingWord, setIsChoosingWord] = useState(false)
+  const [likes, setLikes] = useState(0)
+  const [dislikes, setDislikes] = useState(0)
+  const [hasVoted, setHasVoted] = useState(false)
 
   const canvasRef = useRef<CanvasHandle>(null)
   const chatRef = useRef<ChatHandle>(null)
@@ -79,6 +82,9 @@ export default function GamePage() {
       setCooldown(0)
       setIsChoosingWord(!!updatedRoom.customChoosing)
       setCustomWordInput('')
+      setLikes(0)
+      setDislikes(0)
+      setHasVoted(false)
       // Reset brush controls and chat input for new round
       setBrushKey((k) => k + 1)
       chatRef.current?.clearInput()
@@ -110,7 +116,12 @@ export default function GamePage() {
     })
 
     sock.on('player-joined', (updatedRoom: Room) => {
-      setRoom(updatedRoom)
+      setRoom((prev) => ({
+        ...updatedRoom,
+        answer: updatedRoom.answer ?? prev?.answer,
+        drawer: updatedRoom.drawer ?? prev?.drawer,
+        hint: updatedRoom.hint ?? prev?.hint,
+      }))
       const newPlayer = updatedRoom.players.at(-1)
       if (newPlayer) {
         setNotification(`${newPlayer.username} joined the game!`)
@@ -119,7 +130,12 @@ export default function GamePage() {
     })
 
     sock.on('player-left', (updatedRoom: Room) => {
-      setRoom(updatedRoom)
+      setRoom((prev) => ({
+        ...updatedRoom,
+        answer: updatedRoom.answer ?? prev?.answer,
+        drawer: updatedRoom.drawer ?? prev?.drawer,
+        hint: updatedRoom.hint ?? prev?.hint,
+      }))
     })
 
     sock.on('timer-update', ({ timeRemaining: t }: { timeRemaining: number }) => {
@@ -193,7 +209,17 @@ export default function GamePage() {
     })
 
     sock.on('settings-updated', (updatedRoom: Room) => {
-      setRoom(updatedRoom)
+      setRoom((prev) => ({
+        ...updatedRoom,
+        answer: updatedRoom.answer ?? prev?.answer,
+        drawer: updatedRoom.drawer ?? prev?.drawer,
+        hint: updatedRoom.hint ?? prev?.hint,
+      }))
+    })
+
+    sock.on('reaction-update', (data: { likes: number; dislikes: number }) => {
+      setLikes(data.likes)
+      setDislikes(data.dislikes)
     })
 
     // --- Request current game state (handles race condition) ---
@@ -261,6 +287,7 @@ export default function GamePage() {
       sock.off('kicked')
       sock.off('host-changed')
       sock.off('settings-updated')
+      sock.off('reaction-update')
     }
   }, [username, roomId, router])
 
@@ -353,6 +380,13 @@ export default function GamePage() {
     }
   }
 
+  const handleVoteReaction = (type: 'like' | 'dislike') => {
+    if (socket && roomId && !hasVoted && !isDrawer) {
+      socket.emit('vote-reaction', { roomId, type })
+      setHasVoted(true)
+    }
+  }
+
   const handleKickPlayer = (targetId: string) => {
     if (socket && roomId) {
       const target = room?.players.find((p) => p.id === targetId)
@@ -421,6 +455,11 @@ export default function GamePage() {
         themeColor={themeColors.primary}
         isChoosingWord={isChoosingWord}
         themeName={themeConfig.name}
+        likes={likes}
+        dislikes={dislikes}
+        hasVoted={hasVoted}
+        showReactions={!gameEnded && !isCooldown && room.state === 'playing' && !!room.drawer}
+        onVote={handleVoteReaction}
       />
 
       {/* Floating toast notifications */}
@@ -507,19 +546,18 @@ export default function GamePage() {
               {/* Reference image (hidden for custom theme) */}
               {showReference && room.theme !== 'custom' && (
                 <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
-                  {room.theme === 'dbd' && room.answer ? (
+                  {(room.theme === 'dbd' || room.theme === 'lol') && room.answer ? (
                     <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/images/dbd/${room.answer.replace(/ /g, '_')}.webp`}
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/images/${room.theme}/${room.theme === 'dbd' ? room.answer.replaceAll(' ', '_') : encodeURIComponent(room.answer)}.webp`}
                       alt="Reference"
                       className="w-full h-full object-contain"
                       onError={(e) => {
-                        // Fallback to placeholder if image unavailable
                         e.currentTarget.style.display = 'none'
                         e.currentTarget.nextElementSibling?.classList.remove('hidden')
                       }}
                     />
                   ) : null}
-                  <div className={`text-center text-gray-500 p-2 ${room.theme === 'dbd' && room.answer ? 'hidden' : ''}`}>
+                  <div className={`text-center text-gray-500 p-2 ${(room.theme === 'dbd' || room.theme === 'lol') && room.answer ? 'hidden' : ''}`}>
                     <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                     </svg>
@@ -671,49 +709,68 @@ export default function GamePage() {
                 <p className="text-yellow-300 text-xs italic">Settings can only be changed after the game ends.</p>
               )}
               <div>
-                <label htmlFor="settings-theme" className="text-xs text-gray-300 block mb-1">Theme</label>
-                <select
-                  id="settings-theme"
-                  value={room.theme}
-                  onChange={(e) => handleUpdateSettings({ theme: e.target.value })}
-                  disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
-                >
-                  <option value="lol" className="bg-gray-900">League of Legends</option>
-                  <option value="elden-ring" className="bg-gray-900">Elden Ring</option>
-                  <option value="dbd" className="bg-gray-900">Dead by Daylight</option>
-                  <option value="game-titles" className="bg-gray-900">Game Titles</option>
-                  <option value="anime" className="bg-gray-900">Anime</option>
-                  <option value="custom" className="bg-gray-900">Custom</option>
-                </select>
+                <span className="text-xs text-gray-300 block mb-1">Theme</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { value: 'lol', label: '⚔️ LoL' },
+                    { value: 'elden-ring', label: '🗡️ Elden Ring' },
+                    { value: 'dbd', label: '🔪 DbD' },
+                    { value: 'game-titles', label: '🎮 Games' },
+                    { value: 'anime', label: '🌸 Anime' },
+                    { value: 'custom', label: '✏️ Custom' },
+                  ].map((t) => (
+                    <button
+                      key={t.value}
+                      onClick={() => handleUpdateSettings({ theme: t.value })}
+                      disabled={!gameEnded}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                        room.theme === t.value
+                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div>
-                <label htmlFor="settings-rounds" className="text-xs text-gray-300 block mb-1">Rounds</label>
-                <select
-                  id="settings-rounds"
-                  value={room.totalRounds}
-                  onChange={(e) => handleUpdateSettings({ rounds: Number(e.target.value) })}
-                  disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
-                >
+                <span className="text-xs text-gray-300 block mb-1">Rounds</span>
+                <div className="flex gap-1.5">
                   {[3, 5, 8, 10].map((r) => (
-                    <option key={r} value={r} className="bg-gray-900">{r} rounds</option>
+                    <button
+                      key={r}
+                      onClick={() => handleUpdateSettings({ rounds: r })}
+                      disabled={!gameEnded}
+                      className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        room.totalRounds === r
+                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {r}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
               <div>
-                <label htmlFor="settings-drawtime" className="text-xs text-gray-300 block mb-1">Draw Time</label>
-                <select
-                  id="settings-drawtime"
-                  value={room.drawTime}
-                  onChange={(e) => handleUpdateSettings({ drawTime: Number(e.target.value) })}
-                  disabled={!gameEnded}
-                  className="w-full px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm transition-colors"
-                >
+                <span className="text-xs text-gray-300 block mb-1">Draw Time</span>
+                <div className="flex gap-1.5">
                   {[60, 90, 120].map((t) => (
-                    <option key={t} value={t} className="bg-gray-900">{t} seconds</option>
+                    <button
+                      key={t}
+                      onClick={() => handleUpdateSettings({ drawTime: t })}
+                      disabled={!gameEnded}
+                      className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        room.drawTime === t
+                          ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                          : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
+                      } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {t}s
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             </div>
             {!gameEnded && (

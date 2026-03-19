@@ -77,7 +77,7 @@ export function PlayerLeaderboard({
                     {medal}{player.username}
                   </span>
                   {player.isHost && (
-                    <span className="text-[10px] text-yellow-400 font-bold">★</span>
+                    <span className="text-[10px] text-yellow-400 font-bold">[Host]</span>
                   )}
                   {isDrawing && (
                     <span className="text-[10px] text-orange-400">✎</span>

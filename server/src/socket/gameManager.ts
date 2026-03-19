@@ -45,6 +45,8 @@ export class GameManager {
   private readonly customWordTimers: Map<string, NodeJS.Timeout> = new Map()
   // Alt answers for characters with alternate names (e.g. Executioner = Pyramid Head)
   private readonly altAnswers: Map<string, string> = new Map()
+  // Per-room like/dislike reactions (reset each turn)
+  private readonly roomReactions: Map<string, { likes: number; dislikes: number; voted: Map<string, string> }> = new Map()
   private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
@@ -234,6 +236,9 @@ export class GameManager {
 
     // Clear canvas strokes for new turn
     this.canvasStrokes.set(roomId, [])
+
+    // Reset reactions for new turn
+    this.roomReactions.set(roomId, { likes: 0, dislikes: 0, voted: new Map() })
 
     // Custom theme: drawer chooses a word
     if (room.theme === 'custom') {
@@ -800,6 +805,30 @@ export class GameManager {
     socket.to(roomId).emit('undo')
   }
 
+  handleVoteReaction(socket: Socket, roomId: string, type: string): void {
+    if (type !== 'like' && type !== 'dislike') return
+
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) return
+    if (room.state !== 'playing') return
+    if (room.drawer === socket.id) return // drawer can't vote
+    if (!room.players.some((p: { id: string }) => p.id === socket.id)) return
+
+    let reactions = this.roomReactions.get(roomId)
+    if (!reactions) {
+      reactions = { likes: 0, dislikes: 0, voted: new Map() }
+      this.roomReactions.set(roomId, reactions)
+    }
+
+    if (reactions.voted.has(socket.id)) return // already voted
+
+    if (type === 'like') reactions.likes++
+    else reactions.dislikes++
+    reactions.voted.set(socket.id, type)
+
+    this.io.to(roomId).emit('reaction-update', { likes: reactions.likes, dislikes: reactions.dislikes })
+  }
+
   private cleanupAfterLeave(room: Room, leftSocketId: string): void {
     const updatedRoom = this.roomManager.getRoom(room.id)
 
@@ -825,6 +854,26 @@ export class GameManager {
         newHostId: updatedRoom.host,
         newHostUsername: updatedRoom.players[0].username,
       })
+    }
+
+    // If only 1 player left during a game, end the game
+    if (updatedRoom.players.length < 2 && updatedRoom.state === 'playing') {
+      console.log(`[Game] Only 1 player left in room ${room.id}, ending game`)
+      const timer = this.timers.get(room.id)
+      if (timer) clearInterval(timer)
+      this.timers.delete(room.id)
+      this.roundStartTimes.delete(room.id)
+      this.cooldownRooms.delete(room.id)
+      const cwTimer = this.customWordTimers.get(room.id)
+      if (cwTimer) clearInterval(cwTimer)
+      this.customWordTimers.delete(room.id)
+
+      this.roomManager.updateRoomState(room.id, 'results')
+      this.roomManager.syncPlayerScores(room.id)
+      const finalRoom = this.roomManager.getRoom(room.id)!
+      this.io.to(room.id).emit('game-ended', finalRoom)
+      this.io.to(room.id).emit('player-left', this.sanitizeRoom(finalRoom))
+      return
     }
 
     // If the drawer left during a game, end the turn early
