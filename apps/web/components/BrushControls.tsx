@@ -42,11 +42,14 @@ interface BrushControlsProps {
 }
 
 const COLORS = [
-  '#000000', '#404040', '#808080', '#c0c0c0', '#ffffff',
-  '#8b0000', '#ef4444', '#f97316', '#fbbf24', '#eab308',
-  '#166534', '#22c55e', '#34d399', '#06b6d4', '#0ea5e9',
-  '#1e40af', '#3b82f6', '#8b5cf6', '#a855f7', '#ec4899',
-  '#92400e', '#f5f5dc',
+  // row 1 (dark)
+  '#000000', '#7f1d1d', '#9a3412', '#a16207', '#166534', '#0f766e', '#0e7490', '#1e3a8a', '#581c87', '#9d174d', '#5c4033',
+
+  // row 2 (base)
+  '#808080', '#dc2626', '#ea580c', '#eab308', '#22c55e', '#14b8a6', '#06b6d4', '#2563eb', '#7c3aed', '#ec4899', '#8b5a2b',
+
+  // row 3 (light)
+  '#ffffff', '#fca5a5', '#fdba74', '#fde68a', '#86efac', '#99f6e4', '#67e8f9', '#93c5fd', '#c4b5fd', '#f9a8d4', '#d2b48c'
 ]
 
 export function BrushControls({
@@ -200,27 +203,6 @@ export function BrushControls({
       {/* Divider */}
       <div className="w-px h-8 bg-gray-700 hidden sm:block" />
 
-      {/* Shape tools */}
-      <div className="flex items-center gap-1">
-        {SHAPE_TOOLS.map(({ tool, label, icon }) => (
-          <button
-            key={tool}
-            onClick={() => handleToolChange(tool)}
-            title={label}
-            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-              activeTool === tool
-                ? 'text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
-            }`}
-            style={activeTool === tool ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
-          >
-            {icon}
-          </button>
-        ))}
-      </div>
-
-      {/* Divider */}
-      <div className="w-px h-8 bg-gray-700 hidden sm:block" />
 
       {/* Actions: Undo, Clear */}
       <div className="flex items-center gap-1">
@@ -242,6 +224,28 @@ export function BrushControls({
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </button>
+      </div>
+
+      {/* Divider */}
+      <div className="w-px h-8 bg-gray-700 hidden sm:block" />
+
+      {/* Shape tools */}
+      <div className="flex items-center gap-1">
+        {SHAPE_TOOLS.map(({ tool, label, icon }) => (
+          <button
+            key={tool}
+            onClick={() => handleToolChange(tool)}
+            title={label}
+            className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+              activeTool === tool
+                ? 'text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+            style={activeTool === tool ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
+          >
+            {icon}
+          </button>
+        ))}
       </div>
     </div>
   )
