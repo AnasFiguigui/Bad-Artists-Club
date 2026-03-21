@@ -51,7 +51,7 @@ export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, 
   const chatDisabled = isDrawer || isCooldown
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full">
       <div className="px-3 py-2 border-b border-gray-700/50">
         <h3 className="text-sm font-bold text-white">Chat</h3>
       </div>

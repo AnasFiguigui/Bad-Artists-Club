@@ -830,7 +830,7 @@ export default function GamePage() {
             </div>
           </div>
 
-          {/* Brush controls bar (reactions inside for drawer) */}
+          {/* Brush controls bar (drawer) */}
           {canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2 animate-slide-up">
               <BrushControls
@@ -850,35 +850,39 @@ export default function GamePage() {
               />
             </div>
           )}
-          
-          {/* Guesser reaction buttons (below canvas, centered) */}
-          {showReactions && !isDrawer && !canDraw && (
-            <div className="shrink-0 px-2 sm:px-3 pb-2 flex justify-center">
-              <div className="flex items-center gap-1">
-                {hasVoted ? (
-                  <>
-                    <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'like' ? 'bg-green-900/40 ring-1 ring-green-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'like' ? 'animate-vote-bounce' : ''}`}>
-                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
-                    </span>
-                    <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'dislike' ? 'bg-red-900/40 ring-1 ring-red-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'dislike' ? 'animate-vote-bounce' : ''}`}>
-                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => handleVoteReaction('like')}
-                      className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-green-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
-                    >
-                      <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
-                    </button>
-                    <button
-                      onClick={() => handleVoteReaction('dislike')}
-                      className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
-                    >
-                      <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
-                    </button>
-                  </>
+
+          {/* Guesser bar — always visible when not drawing, reactions inside when active */}
+          {!canDraw && (
+            <div className="shrink-0 px-2 sm:px-3 pb-2">
+              <div className="flex items-center justify-center bg-gray-900/80 border border-gray-700/50 rounded-lg px-2 sm:px-3 py-2 min-h-[2.75rem]">
+                {showReactions && !isDrawer && (
+                  <div className="flex items-center gap-1">
+                    {hasVoted ? (
+                      <>
+                        <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'like' ? 'bg-green-900/40 ring-1 ring-green-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'like' ? 'animate-vote-bounce' : ''}`}>
+                          <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                        </span>
+                        <span className={`flex items-center gap-0.5 px-2.5 py-1.5 rounded-lg text-sm transition-all ${voteType === 'dislike' ? 'bg-red-900/40 ring-1 ring-red-500/50' : 'bg-gray-800/50 opacity-40'} ${voteAnimating && voteType === 'dislike' ? 'animate-vote-bounce' : ''}`}>
+                          <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleVoteReaction('like')}
+                          className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-green-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
+                        >
+                          <span>👍</span><span className="text-green-400 font-bold tabular-nums">{likes}</span>
+                        </button>
+                        <button
+                          onClick={() => handleVoteReaction('dislike')}
+                          className="flex items-center gap-0.5 px-2.5 py-1.5 bg-gray-800 hover:bg-red-900/40 rounded-lg text-sm transition-all hover:scale-105 active:scale-95"
+                        >
+                          <span>👎</span><span className="text-red-400 font-bold tabular-nums">{dislikes}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
