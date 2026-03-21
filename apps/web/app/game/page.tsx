@@ -18,20 +18,22 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
   gameEnded: boolean
   themeColor: string
   onClose: () => void
-  onApply: (settings: { theme?: string; rounds?: number; drawTime?: number }) => void
+  onApply: (settings: { theme?: string; rounds?: number; drawTime?: number; hintsEnabled?: boolean }) => void
   onEndGame: () => void
 }>) {
   const [pendingTheme, setPendingTheme] = useState(room.theme)
   const [pendingRounds, setPendingRounds] = useState(room.totalRounds)
   const [pendingDrawTime, setPendingDrawTime] = useState(room.drawTime)
+  const [pendingHints, setPendingHints] = useState(room.hintsEnabled ?? true)
 
-  const hasChanges = pendingTheme !== room.theme || pendingRounds !== room.totalRounds || pendingDrawTime !== room.drawTime
+  const hasChanges = pendingTheme !== room.theme || pendingRounds !== room.totalRounds || pendingDrawTime !== room.drawTime || pendingHints !== (room.hintsEnabled ?? true)
 
   const handleApply = () => {
-    const settings: { theme?: string; rounds?: number; drawTime?: number } = {}
+    const settings: { theme?: string; rounds?: number; drawTime?: number; hintsEnabled?: boolean } = {}
     if (pendingTheme !== room.theme) settings.theme = pendingTheme
     if (pendingRounds !== room.totalRounds) settings.rounds = pendingRounds
     if (pendingDrawTime !== room.drawTime) settings.drawTime = pendingDrawTime
+    if (pendingHints !== (room.hintsEnabled ?? true)) settings.hintsEnabled = pendingHints
     onApply(settings)
     onClose()
   }
@@ -59,6 +61,7 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
               { value: 'dbd', label: '🔪 DbD' },
               { value: 'game-titles', label: '🎮 Games' },
               { value: 'anime', label: '🌸 Anime' },
+              { value: 'crossverse', label: '🌀 Crossverse' },
               { value: 'custom', label: '✏️ Custom' },
             ].map((t) => (
               <button
@@ -113,6 +116,22 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
               </button>
             ))}
           </div>
+        </div>
+        <div>
+          <label className="flex items-center gap-2.5 cursor-pointer group">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={pendingHints}
+                onChange={(e) => setPendingHints(e.target.checked)}
+                disabled={!gameEnded}
+                className="sr-only peer"
+              />
+              <div className="w-8 h-4.5 bg-white/10 border border-white/20 rounded-full peer-checked:bg-purple-500/50 peer-checked:border-purple-400/50 transition-all peer-disabled:opacity-50 w-9 h-5" />
+              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white/60 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white peer-disabled:opacity-50" />
+            </div>
+            <span className="text-xs text-gray-300 group-hover:text-white/80 transition-colors">Hints</span>
+          </label>
         </div>
       </div>
       {gameEnded && (
@@ -675,7 +694,7 @@ export default function GamePage() {
     }
   }
 
-  const handleUpdateSettings = (settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }) => {
+  const handleUpdateSettings = (settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number; hintsEnabled?: boolean }) => {
     if (socket && roomId) {
       socket.emit('update-settings', { roomId, settings }, () => {})
     }

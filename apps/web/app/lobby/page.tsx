@@ -14,6 +14,7 @@ const DEFAULT_CONFIG: GameConfig = {
   rounds: 5,
   drawTime: 90,
   maxPlayers: 20,
+  hintsEnabled: true,
 }
 
 const THEMES = [
@@ -22,6 +23,7 @@ const THEMES = [
   { key: 'dbd', label: 'Dead by Daylight', emoji: '🔪' },
   { key: 'game-titles', label: 'Game Titles', emoji: '🎮' },
   { key: 'anime', label: 'Anime', emoji: '🌸' },
+  { key: 'crossverse', label: 'Crossverse', emoji: '🌀' },
   { key: 'custom', label: 'Custom', emoji: '✏️' },
 ] as const
 
@@ -243,7 +245,7 @@ export default function LobbyPage() {
               </div>
 
               {/* Draw Time buttons */}
-              <div>
+              <div className="mb-5">
                 <label className="block text-white/70 text-xs font-medium uppercase tracking-wider mb-2">Draw Time</label>
                 <div className="grid grid-cols-3 gap-2">
                   {DRAW_TIME_OPTIONS.map((t) => (
@@ -260,6 +262,24 @@ export default function LobbyPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Hints toggle */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={config.hintsEnabled}
+                      onChange={(e) => handleUpdateConfig({ hintsEnabled: e.target.checked } as Partial<GameConfig>)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-white/10 border border-white/20 rounded-full peer-checked:bg-purple-500/50 peer-checked:border-purple-400/50 transition-all" />
+                    <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white/60 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white" />
+                  </div>
+                  <span className="text-white/70 text-xs font-medium uppercase tracking-wider group-hover:text-white/90 transition-colors">Hints</span>
+                </label>
+                <p className="text-white/40 text-[10px] mt-1 ml-12">Reveal letters gradually during each round</p>
               </div>
             </div>
 

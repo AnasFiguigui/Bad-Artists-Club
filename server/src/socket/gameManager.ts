@@ -93,6 +93,15 @@ export class GameManager {
   }
 
   private selectRandomCharacter(theme: string): CharacterData {
+    if (theme === 'crossverse') {
+      // Pool from all non-custom themes
+      const allChars: CharacterData[] = []
+      for (const [key, chars] of this.characterData.entries()) {
+        allChars.push(...chars)
+      }
+      if (allChars.length === 0) return { name: 'Unknown', hintLength: 7 }
+      return allChars[Math.floor(Math.random() * allChars.length)]
+    }
     const characters = this.characterData.get(theme) || []
     if (characters.length === 0) return { name: 'Unknown', hintLength: 7 }
     return characters[Math.floor(Math.random() * characters.length)]
@@ -178,7 +187,7 @@ export class GameManager {
     const username = this.validateUsername(data.username)
 
     // Validate GameConfig
-    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom', 'crossverse']
     const validDrawTimes = [60, 90, 120, 150, 180, 240]
     if (!data.config || typeof data.config !== 'object') throw new Error('Invalid config')
     if (!validThemes.includes(data.config.theme)) throw new Error('Invalid theme')
@@ -402,7 +411,7 @@ export class GameManager {
       this.io.to(roomId).emit('timer-update', { timeRemaining })
 
       // Calculate and emit dynamic hint update for guessers (every ~5 seconds after 30s start)
-      if (timeElapsed >= 30 && timeElapsed % 5 === 0 && room.hint && room.drawer && room.answer) {
+      if (room.hintsEnabled !== false && timeElapsed >= 30 && timeElapsed % 5 === 0 && room.hint && room.drawer && room.answer) {
         const dynamicHint = this.getDynamicHint(roomId, room.hint, room.answer, timeElapsed, room.drawTime)
         const guesserView = { hint: dynamicHint }
         this.io.to(roomId).except(room.drawer).emit('hint-update', guesserView)
@@ -854,13 +863,13 @@ export class GameManager {
     this.endTurn(roomId)
   }
 
-  handleUpdateSettings(socket: Socket, roomId: string, settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number }): void {
+  handleUpdateSettings(socket: Socket, roomId: string, settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number; hintsEnabled?: boolean }): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.host !== socket.id) throw new Error('Only the host can update settings')
     if (room.state === 'playing') throw new Error('Cannot change settings while game is in progress')
 
-    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom']
+    const validThemes = ['lol', 'elden-ring', 'dbd', 'game-titles', 'anime', 'custom', 'crossverse']
     const validRounds = [3, 5, 8, 10]
     const validDrawTimes = [60, 90, 120, 150, 180, 240]
 
@@ -876,6 +885,9 @@ export class GameManager {
     }
     if (settings.maxPlayers && settings.maxPlayers >= 2 && settings.maxPlayers <= 20) {
       room.maxPlayers = settings.maxPlayers
+    }
+    if (typeof settings.hintsEnabled === 'boolean') {
+      room.hintsEnabled = settings.hintsEnabled
     }
 
     this.io.to(roomId).emit('settings-updated', this.sanitizeRoom(room))

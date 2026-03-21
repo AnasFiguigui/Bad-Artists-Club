@@ -27,6 +27,7 @@ export class RoomManager {
       drawTime: config.drawTime,
       scores: { [hostId]: 0 },
       maxPlayers: config.maxPlayers,
+      hintsEnabled: config.hintsEnabled ?? true,
       turnIndex: 0,
       correctGuessers: [],
     }

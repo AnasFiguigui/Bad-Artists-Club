@@ -17,7 +17,7 @@ export interface Room {
   host: string
   players: Player[]
   state: 'lobby' | 'playing' | 'results'
-  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles' | 'anime' | 'custom'
+  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles' | 'anime' | 'custom' | 'crossverse'
   round: number
   totalRounds: number
   drawer?: string
@@ -27,6 +27,7 @@ export interface Room {
   scores: Record<string, number>
   maxPlayers: number
   hint?: string
+  hintsEnabled: boolean
   turnIndex: number
   correctGuessers: string[]
 }
@@ -53,10 +54,11 @@ export interface ChatMessage {
 }
 
 export interface GameConfig {
-  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles' | 'anime' | 'custom'
+  theme: 'lol' | 'elden-ring' | 'dbd' | 'game-titles' | 'anime' | 'custom' | 'crossverse'
   rounds: 3 | 5 | 8 | 10
   drawTime: 60 | 90 | 120 | 150 | 180 | 240
   maxPlayers: number
+  hintsEnabled: boolean
 }
 
 export interface Character {

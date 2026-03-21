@@ -116,6 +116,22 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
     },
     referenceAspectRatio: 'none',
   },
+  crossverse: {
+    name: 'Crossverse',
+    emoji: '🌀',
+    colors: {
+      primary: '#f97316',       // Vibrant orange
+      primaryLight: '#fdba74',
+      primaryDark: '#c2410c',
+      secondary: '#8b5cf6',     // Purple accent
+      bg: 'rgba(249, 115, 22, 0.08)',
+      border: 'rgba(249, 115, 22, 0.3)',
+      text: '#fff7ed',
+      textMuted: '#fdba74',
+      gradient: 'linear-gradient(135deg, rgba(249, 115, 22, 0.4), rgba(194, 65, 12, 0.4))',
+    },
+    referenceAspectRatio: '1/1',
+  },
 }
 
 export function getThemeConfig(theme: string): ThemeConfig {

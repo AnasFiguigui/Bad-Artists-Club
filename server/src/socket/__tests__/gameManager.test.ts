@@ -56,7 +56,7 @@ describe('GameManager Socket Events', () => {
       })
 
       gameManager.handleCreateRoom(mockSocket, {
-        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8 },
+        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8, hintsEnabled: true },
         username: 'TestPlayer',
       })
 
@@ -74,7 +74,7 @@ describe('GameManager Socket Events', () => {
 
       // Create room first
       const roomId = gameManager.handleCreateRoom(hostSocket, {
-        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8 },
+        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8, hintsEnabled: true },
         username: 'Host',
       })
 
@@ -112,7 +112,7 @@ describe('GameManager Socket Events', () => {
 
       // Create and setup room
       const roomId = gameManager.handleCreateRoom(hostSocket, {
-        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8 },
+        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8, hintsEnabled: true },
         username: 'Host',
       })
 
@@ -155,7 +155,7 @@ describe('GameManager Socket Events', () => {
       const playerSocket = { id: 'player1', join: jest.fn() } as any
 
       const roomId = gameManager.handleCreateRoom(playerSocket, {
-        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8 },
+        config: { theme: 'lol', rounds: 5, drawTime: 90, maxPlayers: 8, hintsEnabled: true },
         username: 'Player',
       })
 
