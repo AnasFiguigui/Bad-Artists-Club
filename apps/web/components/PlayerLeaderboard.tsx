@@ -86,7 +86,7 @@ export function PlayerLeaderboard({
                   {isDrawing && (
                     <span className="text-[10px] text-orange-400 animate-pencil-wiggle">✎</span>
                   )}
-                  {(streaks[player.id] || 0) >= 3 && (
+                  {(streaks[player.id] || 0) >= 5 && idx < 3 && (
                     <span className="text-xs animate-flame" title={`${streaks[player.id]} streak!`}>🔥{streaks[player.id]}</span>
                   )}
                 </div>

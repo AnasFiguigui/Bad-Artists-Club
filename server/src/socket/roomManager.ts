@@ -56,6 +56,7 @@ export class RoomManager {
       ready: false,
       score: 0,
       isHost: false,
+      isSpectator: false,
     }
 
     room.players.push(player)

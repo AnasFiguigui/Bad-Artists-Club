@@ -120,7 +120,7 @@ export class GameManager {
 
     // Calculate current reveal count based on time progression (30s to drawTime)
     const progress = Math.min((timeElapsed - 30) / (drawTime - 30), 1)
-    const currentRevealsCount = Math.floor(progress * maxReveals)
+    const currentRevealsCount = Math.min(Math.ceil(progress * maxReveals), maxReveals)
 
     // Add new reveals if we haven't reached the max yet
     if (revealed.size < currentRevealsCount) {
@@ -277,6 +277,15 @@ export class GameManager {
 
     const activePlayers = room.players.filter((p: { isSpectator?: boolean }) => !p.isSpectator)
     const playerCount = activePlayers.length
+
+    if (playerCount < 2) {
+      this.roomManager.updateRoomState(roomId, 'results')
+      this.roomManager.syncPlayerScores(roomId)
+      const finalRoom = this.roomManager.getRoom(roomId)!
+      this.io.to(roomId).emit('game-ended', finalRoom)
+      return
+    }
+
     const totalTurns = room.totalRounds * playerCount
 
     if (room.turnIndex >= totalTurns) {
@@ -1012,6 +1021,7 @@ export class GameManager {
       if (timer) clearInterval(timer)
       this.timers.delete(room.id)
       this.roundStartTimes.delete(room.id)
+      this.canvasStrokes.delete(room.id)
       this.endTurn(room.id)
     }
 

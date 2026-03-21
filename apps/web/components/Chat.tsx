@@ -43,7 +43,7 @@ export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, 
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }
