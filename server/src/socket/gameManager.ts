@@ -562,15 +562,14 @@ export class GameManager {
     const roundStart = this.roundStartTimes.get(roomId) || Date.now()
     const elapsedSeconds = Math.floor((Date.now() - roundStart) / 1000)
     const revealedCount = this.revealedHintPositions.get(roomId)?.size || 0
-    // Scoring: 500 base, -1pt/sec time penalty, -40pts per revealed hint letter
-    // Before hints (0-30s): ~470-500 pts (rewards fast guesses)
-    // During hints (30s+): drops significantly with each letter reveal
+    // Scoring: 200 base, -2pts/sec time penalty, -10pts per revealed hint letter
+    // 0s: 200, 10s: 180, 30s: 140, 60s: 80, with hints: -10 each
     // Minimum: 50 pts
-    const points = Math.max(500 - elapsedSeconds - (revealedCount * 40), 50)
+    const points = Math.max(200 - (elapsedSeconds * 2) - (revealedCount * 10), 50)
 
     this.roomManager.updateScore(roomId, socket.id, points)
     if (room.drawer) {
-      this.roomManager.updateScore(roomId, room.drawer, Math.floor(points * 0.7))
+      this.roomManager.updateScore(roomId, room.drawer, Math.floor(points * 0.15))
     }
 
     // Update streak for the guesser
@@ -749,11 +748,17 @@ export class GameManager {
     this.io.to(roomId).emit('game-ended', finalRoom)
   }
 
-  handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string } {
+  handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string; error?: string } {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.drawer !== socket.id) throw new Error('Only the drawer can reroll')
     if (room.theme === 'custom') throw new Error('Cannot reroll in custom mode')
+
+    // Only allow reroll in the first 20 seconds of the round
+    const roundStart = this.roundStartTimes.get(roomId)
+    if (roundStart && (Date.now() - roundStart) > 20000) {
+      return { success: false, error: 'Reroll is locked after 20 seconds' }
+    }
 
     const character = this.selectRandomCharacter(room.theme)
     const hint = this.generateHint(character.name)

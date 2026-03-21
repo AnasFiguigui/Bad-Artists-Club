@@ -198,7 +198,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('reroll', (data: { roomId: string }, callback) => {
-    if (!rateLimit(socket.id, 'reroll', 1, 20000)) {
+    if (!rateLimit(socket.id, 'reroll', 3, 20000)) {
       return callback({ success: false, error: 'Too many rerolls' })
     }
     try {

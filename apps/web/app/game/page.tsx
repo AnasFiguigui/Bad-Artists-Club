@@ -11,7 +11,7 @@ import { GameNavbar } from '@/components/GameNavbar'
 import { PlayerLeaderboard } from '@/components/PlayerLeaderboard'
 import { BrushControls } from '@/components/BrushControls'
 import { getThemeConfig } from '@/lib/themeConfig'
-import { playCorrectGuess, playTimerTick, playRoundStart, playGameEnd, playVote, playSpeedBonus, playStreakSound, playPlayerJoined } from '@/lib/sounds'
+import { playCorrectGuess, playTimerTick, playRoundStart, playGameEnd, playVote, playPlayerJoined } from '@/lib/sounds'
 
 function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, onEndGame }: Readonly<{
   room: Room
@@ -171,10 +171,10 @@ export default function GamePage() {
   const [recapData, setRecapData] = useState<{ answer: string; topGuesser?: string; totalGuessers: number; drawerLikes: number; drawerDislikes: number } | null>(null)
   const [isSpectator, setIsSpectator] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
-  const [rerollCooldown, setRerollCooldown] = useState(0)
+  const [rerollLocked, setRerollLocked] = useState(false)
   const speedBonusIdRef = useRef(0)
   const floatingEmojiIdRef = useRef(0)
-  const rerollCooldownIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const rerollLockTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const canvasRef = useRef<CanvasHandle>(null)
   const chatRef = useRef<ChatHandle>(null)
@@ -235,21 +235,11 @@ export default function GamePage() {
       setVoteAnimating(false)
       setShowRecap(false)
       setRecapData(null)
-      setRerollCooldown(20)
+      setRerollLocked(false)
       
-      // Clear existing cooldown interval
-      if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
-      
-      // Set up reroll cooldown countdown (20s)
-      rerollCooldownIntervalRef.current = setInterval(() => {
-        setRerollCooldown((prev) => {
-          if (prev <= 0.1) {
-            if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
-            return 0
-          }
-          return prev - 0.1
-        })
-      }, 100)
+      // Lock reroll after 20 seconds
+      if (rerollLockTimerRef.current) clearTimeout(rerollLockTimerRef.current)
+      rerollLockTimerRef.current = setTimeout(() => setRerollLocked(true), 20000)
       
       // Play round start sound
       if (!mutedRef.current) playRoundStart()
@@ -332,17 +322,15 @@ export default function GamePage() {
         setPlayerStreaks((prev) => ({ ...prev, [_guesserId]: _streak }))
       }
 
-      // Play sounds
+      // Play sound
       if (!mutedRef.current) {
         playCorrectGuess()
-        if (_points && _points >= 400) playSpeedBonus()
-        if (_streak && _streak >= 3) playStreakSound(_streak)
       }
 
       // Show speed bonus floating text
-      if (_guesserId && _points && _points >= 250) {
+      if (_guesserId && _points && _points >= 120) {
         const id = ++speedBonusIdRef.current
-        const label = _points >= 400 ? `+${_points} FAST!` : `+${_points}`
+        const label = _points >= 180 ? `+${_points} FAST!` : `+${_points}`
         const xPos = 30 + Math.random() * 40
         setSpeedBonuses((prev) => [...prev, { id, text: label, x: xPos, y: 50 }])
         setTimeout(() => setSpeedBonuses((prev) => prev.filter((b) => b.id !== id)), 2000)
@@ -488,7 +476,7 @@ export default function GamePage() {
 
     return () => {
       clearTimeout(roundTimeout)
-      if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
+      if (rerollLockTimerRef.current) clearTimeout(rerollLockTimerRef.current)
       sock.off('round-start')
       sock.off('round-ended')
       sock.off('choose-word')
@@ -622,8 +610,8 @@ export default function GamePage() {
   }, [canDraw, handleUndo])
 
   const handleReroll = () => {
-    if (rerollCooldown > 0) {
-      setNotification(`Reroll ready in ${Math.ceil(rerollCooldown)}s`)
+    if (rerollLocked) {
+      setNotification('Reroll is locked after 20 seconds')
       setTimeout(() => setNotification(null), 2000)
       return
     }
@@ -634,19 +622,6 @@ export default function GamePage() {
           setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint } : prev)
           canvasRef.current?.clear()
           socket.emit('clear-canvas', { roomId })
-          setRerollCooldown(20)
-          
-          // Reset cooldown interval
-          if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
-          rerollCooldownIntervalRef.current = setInterval(() => {
-            setRerollCooldown((prev) => {
-              if (prev <= 0.1) {
-                if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
-                return 0
-              }
-              return prev - 0.1
-            })
-          }, 100)
         }
       })
     }
@@ -780,8 +755,8 @@ export default function GamePage() {
         </div>
       )}
       {cooldown > 0 && (
-        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 px-6 py-3 text-white text-lg font-bold rounded-lg shadow-lg backdrop-blur-sm" style={{ background: `${themeColors.primary}cc`, border: `2px solid ${themeColors.primary}` }}>
-          Next turn in {cooldown}...
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50 animate-slide-down">
+          ⏳ Next turn in {cooldown}...
         </div>
       )}
 
@@ -882,10 +857,10 @@ export default function GamePage() {
               {room.theme !== 'custom' && (
                   <button
                     onClick={handleReroll}
-                    disabled={rerollCooldown > 0}
-                    title={rerollCooldown > 0 ? `Reroll ready in ${Math.ceil(rerollCooldown)}s` : "Reroll word"}
+                    disabled={rerollLocked}
+                    title={rerollLocked ? 'Reroll locked after 20s' : "Reroll word"}
                     className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
-                      rerollCooldown > 0
+                      rerollLocked
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
                         : 'bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300'
                     }`}
@@ -893,7 +868,7 @@ export default function GamePage() {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {rerollCooldown > 0 ? `${Math.ceil(rerollCooldown)}s` : 'Reroll'}
+                    {rerollLocked ? 'Locked' : 'Reroll'}
                   </button>
                 )}
                 <button
@@ -994,7 +969,7 @@ export default function GamePage() {
           {/* Guesser bar — always visible when not drawing, reactions inside when active */}
           {!canDraw && (
             <div className="shrink-0 px-2 sm:px-3 pb-2">
-              <div className="flex items-center justify-center bg-gray-900/80 border border-gray-700/50 rounded-lg px-2 sm:px-3 py-2 min-h-[2.75rem]">
+              <div className="flex items-center justify-center bg-gray-900/80 border border-gray-700/50 rounded-lg px-2 sm:px-3 py-2 min-h-[5.1rem]">
                 {showReactions && !isDrawer && (
                   <div className="flex items-center gap-1">
                     {hasVoted ? (
