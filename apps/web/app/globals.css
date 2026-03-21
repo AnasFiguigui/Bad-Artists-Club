@@ -330,6 +330,15 @@ button[class*="hover:"]:hover {
   background: rgba(128, 128, 128, 0.5);
 }
 
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* ===== FLOATING EMOJI (Twitch-style vote floats) ===== */
 @keyframes floatUpEmoji {
   0% { opacity: 1; transform: translateY(0) scale(1); }

@@ -7,6 +7,7 @@ import { gameStore } from '@/lib/store'
 import { Room, GameConfig } from '@/lib/types'
 import { Grainient } from '@/components/Grainient'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
+import { THEME_CONFIGS } from '@/lib/themeConfig'
 
 const DEFAULT_CONFIG: GameConfig = {
   theme: 'lol',
@@ -14,6 +15,18 @@ const DEFAULT_CONFIG: GameConfig = {
   drawTime: 90,
   maxPlayers: 20,
 }
+
+const THEMES = [
+  { key: 'lol', label: 'League of Legends', emoji: '⚔️' },
+  { key: 'elden-ring', label: 'Elden Ring', emoji: '🗡️' },
+  { key: 'dbd', label: 'Dead by Daylight', emoji: '🔪' },
+  { key: 'game-titles', label: 'Game Titles', emoji: '🎮' },
+  { key: 'anime', label: 'Anime', emoji: '🌸' },
+  { key: 'custom', label: 'Custom', emoji: '✏️' },
+] as const
+
+const ROUND_OPTIONS = [3, 5, 8, 10] as const
+const DRAW_TIME_OPTIONS = [60, 90, 120, 150, 180, 240] as const
 
 export default function LobbyPage() {
   const router = useRouter()
@@ -159,9 +172,10 @@ export default function LobbyPage() {
 
   const isHost = room.host === gameStore.getState().currentPlayer?.id
   const allReady = room.players.every((p) => p.ready)
+  const themeConfig = THEME_CONFIGS[config.theme] || THEME_CONFIGS['lol']
 
   return (
-    <main className="min-h-screen relative p-4 sm:p-8 overflow-hidden">
+    <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
       <Grainient
         color1="#FF9FFC"
         color2="#5227FF"
@@ -170,133 +184,154 @@ export default function LobbyPage() {
       />
       <BackgroundDoodles />
       
-      <div className="max-w-5xl mx-auto relative z-10">
+      <div className="w-full max-w-6xl relative z-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl sm:text-5xl font-caveat font-bold text-white leading-tight mb-2">Hosting Party</h1>
-          <p className="text-white/75 text-lg">
-            Room ID: <span className="font-mono text-purple-900/90 font-bold">{room.id}</span>
+        <div className="mb-6 text-center">
+          <h1 className="text-4xl sm:text-5xl font-caveat font-bold text-white leading-tight mb-1">Hosting Party</h1>
+          <p className="text-white/60 text-sm">
+            Room <span className="font-mono text-purple-300/90 font-bold">{room.id}</span>
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6">
-          {/* Left: Config */}
-          <div className="card-hand-drawn card-hover rotate-subtle p-6 sm:p-8">
-            <h2 className="text-2xl sm:text-3xl font-caveat font-bold text-white mb-6">⚙️ Settings</h2>
+        {/* Two-column layout */}
+        <div className="grid md:grid-cols-2 gap-5">
+          {/* LEFT COLUMN: Settings + Invite */}
+          <div className="space-y-5">
+            {/* Settings Card */}
+            <div className="card-hand-drawn p-5 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
 
-            <div className="space-y-5">
-              <div>
-                <label htmlFor="lobby-theme" className="block text-white font-medium text-lg mb-2 font-caveat">Theme</label>
-                <select
-                  id="lobby-theme"
-                  value={config.theme}
-                  onChange={(e) => handleUpdateConfig({ theme: e.target.value as any })}
-                  className="w-full px-4 py-2 bg-white/10 text-white rounded-lg border border-white/20 backdrop-blur-sm focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-purple-300/20 transition-colors appearance-none cursor-pointer hover:border-white/30"
-                >
-                  <option value="lol" className="bg-gray-900">⚔️ League of Legends</option>
-                  <option value="elden-ring" className="bg-gray-900">🗡️ Elden Ring</option>
-                  <option value="dbd" className="bg-gray-900">🔪 Dead by Daylight</option>
-                  <option value="game-titles" className="bg-gray-900">🎮 Game Titles</option>
-                  <option value="anime" className="bg-gray-900">🌸 Anime</option>
-                  <option value="custom" className="bg-gray-900">✏️ Custom</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="lobby-rounds" className="text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
-                  <span>Rounds</span>
-                  <span className="text-white font-bold">{config.rounds}</span>
-                </label>
-                <input
-                  id="lobby-rounds"
-                  type="range"
-                  min="3"
-                  max="10"
-                  step="1"
-                  value={config.rounds}
-                  onChange={(e) => handleUpdateConfig({ rounds: Number.parseInt(e.target.value) as any })}
-                  className="w-full slider-modern"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="lobby-drawtime" className="text-white font-medium text-lg mb-2 font-caveat flex justify-between items-center">
-                  <span>Draw Time</span>
-                  <span className="text-white font-bold">{config.drawTime}s</span>
-                </label>
-                <input
-                  id="lobby-drawtime"
-                  type="range"
-                  min="60"
-                  max="120"
-                  step="30"
-                  value={config.drawTime}
-                  onChange={(e) => handleUpdateConfig({ drawTime: Number.parseInt(e.target.value) as any })}
-                  className="w-full slider-modern"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Middle: Invite & Share */}
-          <div className="card-hand-drawn card-hover rotate-subtle p-6 sm:p-8">
-            <h2 className="text-2xl sm:text-3xl font-caveat font-bold text-white mb-6">🔗 Invite Friends</h2>
-
-            <div className="space-y-5">
-              <div className="p-4 bg-purple-500/20 border border-purple-400/30 rounded-lg text-white/90 text-sm backdrop-blur-sm">
-                <p className="font-medium text-white mb-1">💡 How to join:</p>
-                <p className="text-white/90">Share your room ID or invite link. Friends can join anytime!</p>
-              </div>
-
-              <button
-                onClick={handleCopyLink}
-                className="w-full bg-gradient-to-r from-blue-500/60 to-blue-600/50 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/50 text-blue-100 hover:text-blue-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-blue-500/25"
-              >
-                {copied ? '✓ Link Copied!' : '📋 Copy Invite Link'}
-              </button>
-              
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(room.id)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 2000)
-                }}
-                className="w-full bg-gradient-to-r from-cyan-500/30 to-cyan-600/30 hover:from-cyan-500/40 hover:to-cyan-600/60 border border-cyan-400/50 text-cyan-100 hover:text-cyan-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-cyan-500/25"
-              >
-                {copied ? '✓ Room ID Copied!' : `🎮 Copy Room ID`}
-              </button>
-
-              <div className="mt-4 p-3 bg-white/10 border border-white/20 rounded-lg text-white text-xs font-mono text-center break-all">
-                {room.id}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Players */}
-          <div className="card-hand-drawn card-hover rotate-subtle p-6 sm:p-8">
-            <h2 className="text-2xl sm:text-3xl font-caveat font-bold text-white mb-6">👥 Players ({room.players.length})</h2>
-
-            <div className="space-y-3 mb-6">
-              {room.players.map((player) => (
-                <div
-                  key={player.id}
-                  className="bg-white/10 hover:bg-white/15 border border-white/20 p-4 rounded-lg flex items-center justify-between transition-all duration-200 group"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-white font-semibold group-hover:text-white/95">{player.username}</span>
-                    {player.isHost && <span className="text-lg">👑</span>}
-                  </div>
-                  <span className={`text-xs font-bold transition-colors ${player.ready ? 'text-green-400' : 'text-gray-100'}`}>
-                    {player.ready ? '✓ Ready' : 'Waiting...'}
-                  </span>
+              {/* Theme buttons */}
+              <div className="mb-5">
+                <label className="block text-white/70 text-xs font-medium uppercase tracking-wider mb-2">Theme</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => handleUpdateConfig({ theme: t.key as GameConfig['theme'] })}
+                      className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 border ${
+                        config.theme === t.key
+                          ? 'bg-white/20 border-white/40 text-white shadow-lg scale-[1.02]'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
+                      }`}
+                    >
+                      <span className="text-base block mb-0.5">{t.emoji}</span>
+                      <span className="leading-tight block">{t.label}</span>
+                    </button>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {/* Rounds buttons */}
+              <div className="mb-5">
+                <label className="block text-white/70 text-xs font-medium uppercase tracking-wider mb-2">Rounds</label>
+                <div className="flex gap-2">
+                  {ROUND_OPTIONS.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => handleUpdateConfig({ rounds: r as GameConfig['rounds'] })}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-200 border ${
+                        config.rounds === r
+                          ? 'bg-white/20 border-white/40 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Draw Time buttons */}
+              <div>
+                <label className="block text-white/70 text-xs font-medium uppercase tracking-wider mb-2">Draw Time</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {DRAW_TIME_OPTIONS.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => handleUpdateConfig({ drawTime: t as GameConfig['drawTime'] })}
+                      className={`py-2 rounded-lg text-sm font-bold transition-all duration-200 border ${
+                        config.drawTime === t
+                          ? 'bg-white/20 border-white/40 text-white shadow-lg'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20'
+                      }`}
+                    >
+                      {t}s
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
+            {/* Invite Card */}
+            <div className="card-hand-drawn p-5 sm:p-6">
+              <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">🔗 Invite Friends</h2>
+
+              <div className="p-3 bg-purple-500/15 border border-purple-400/20 rounded-lg text-white/80 text-xs backdrop-blur-sm mb-4">
+                <p className="font-medium text-white/90 mb-0.5">💡 How to join:</p>
+                <p>Share your room ID or invite link. Friends can join anytime!</p>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full bg-gradient-to-r from-blue-500/50 to-blue-600/40 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/40 text-blue-100 hover:text-blue-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                >
+                  {copied ? '✓ Copied!' : '📋 Copy Invite Link'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(room.id)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                  className="w-full bg-gradient-to-r from-cyan-500/25 to-cyan-600/25 hover:from-cyan-500/35 hover:to-cyan-600/45 border border-cyan-400/40 text-cyan-100 hover:text-cyan-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                >
+                  {copied ? '✓ Copied!' : `🎮 Copy Room ID`}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT COLUMN: Players */}
+          <div className="card-hand-drawn p-5 sm:p-6 flex flex-col">
+            <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
+
+            {/* Player list: max 5 visible, scrollable */}
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '320px' }}>
+              <div className="space-y-2.5">
+                {room.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className="bg-white/8 hover:bg-white/12 border border-white/15 p-3.5 rounded-lg flex items-center justify-between transition-all duration-200 group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white/80">
+                        {player.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-white font-semibold text-sm block">{player.username}</span>
+                        {player.isHost && <span className="text-[10px] text-yellow-400/80 font-bold">👑 Host</span>}
+                      </div>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-1 rounded-full transition-colors ${
+                      player.ready
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'bg-white/5 text-gray-400 border border-white/10'
+                    }`}>
+                      {player.ready ? '✓ Ready' : 'Waiting'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2.5 mt-auto">
               <button
                 onClick={handleReady}
-                className="w-full bg-gradient-to-r from-emerald-500/50 to-emerald-600/50 hover:from-emerald-500/60 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-emerald-500/25"
+                className="w-full bg-gradient-to-r from-emerald-500/50 to-emerald-600/50 hover:from-emerald-500/60 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
               >
                 ✓ Ready to Play
               </button>
@@ -304,7 +339,7 @@ export default function LobbyPage() {
               {isHost && room.players.length < 2 && (
                 <button
                   onClick={handleEnterFreeDraw}
-                  className="w-full bg-gradient-to-r from-amber-500/50 to-amber-600/50 hover:from-amber-500/60 hover:to-amber-600/60 border border-amber-400/50 text-amber-100 hover:text-amber-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-amber-500/25"
+                  className="w-full bg-gradient-to-r from-amber-500/50 to-amber-600/50 hover:from-amber-500/60 hover:to-amber-600/60 border border-amber-400/50 text-amber-100 hover:text-amber-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
                 >
                   Free Draw Mode
                 </button>
@@ -313,14 +348,14 @@ export default function LobbyPage() {
               {isHost && allReady && room.players.length >= 2 && (
                 <button
                   onClick={handleStartGame}
-                  className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-indigo-500/25"
+                  className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
                 >
                   Launch Game
                 </button>
               )}
 
               {isHost && (!allReady || room.players.length < 2) && (
-                <p className="text-white text-xs text-center font-medium italic">
+                <p className="text-white/50 text-xs text-center font-medium italic">
                   {room.players.length < 2 ? 'Waiting for 2+ players' : 'All players must be ready'}
                 </p>
               )}

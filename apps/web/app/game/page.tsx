@@ -617,11 +617,14 @@ export default function GamePage() {
     }
     
     if (socket && roomId) {
-      socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string }) => {
+      socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string; error?: string }) => {
         if (response.success && response.answer && response.hint) {
           setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint } : prev)
           canvasRef.current?.clear()
           socket.emit('clear-canvas', { roomId })
+        } else if (!response.success) {
+          setNotification(response.error || 'Reroll failed')
+          setTimeout(() => setNotification(null), 3000)
         }
       })
     }
@@ -750,13 +753,17 @@ export default function GamePage() {
 
       {/* Floating toast notifications */}
       {notification && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
-          {notification}
+        <div className="fixed top-16 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div className="px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm animate-slide-down pointer-events-auto" style={{ background: `${themeColors.primary}cc` }}>
+            {notification}
+          </div>
         </div>
       )}
       {cooldown > 0 && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50 animate-slide-down">
-          ⏳ Next turn in {cooldown}...
+        <div className="fixed top-16 inset-x-0 z-40 flex justify-center pointer-events-none">
+          <div className="px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50 animate-slide-down">
+            ⏳ Next turn in {cooldown}...
+          </div>
         </div>
       )}
 
@@ -1084,15 +1091,19 @@ export default function GamePage() {
 
       {/* Waiting for drawer to choose (guessers see this) */}
       {isChoosingWord && !isDrawer && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
-          ✏️ Drawer is choosing a word...
+        <div className="fixed top-16 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div className="px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
+            ✏️ Drawer is choosing a word...
+          </div>
         </div>
       )}
 
       {/* Spectating banner */}
       {isSpectator && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50">
-          👁 Spectating
+        <div className="fixed top-16 inset-x-0 z-40 flex justify-center pointer-events-none">
+          <div className="px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50">
+            👁 Spectating
+          </div>
         </div>
       )}
 

@@ -781,6 +781,9 @@ export class GameManager {
     // Reset revealed hint positions for the new word
     this.revealedHintPositions.delete(roomId)
 
+    // Reset round start time so scoring and hints restart from now
+    this.roundStartTimes.set(roomId, Date.now())
+
     console.log(`[Game] Reroll in ${roomId}: new character "${character.name}"`)
 
     // Send new hint to all guessers
