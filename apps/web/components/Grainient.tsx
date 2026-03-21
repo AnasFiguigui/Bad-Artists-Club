@@ -45,6 +45,8 @@ const fragmentShader = `
   uniform vec3 uColor1;
   uniform vec3 uColor2;
   uniform vec3 uColor3;
+  uniform vec3 uColor4;
+  uniform vec3 uColor5;
   uniform vec3 uColorBalance;
   varying vec2 vUv;
 
@@ -125,15 +127,19 @@ const fragmentShader = `
     // Noise-based color mixing
     float n1 = snoise(vec3(uv * uNoiseScale, t * 0.5));
     float n2 = snoise(vec3(uv * uNoiseScale + 50.0, t * 0.3));
+    float n3 = snoise(vec3(uv * uNoiseScale + 100.0, t * 0.4));
+    float n4 = snoise(vec3(uv * uNoiseScale + 150.0, t * 0.35));
 
     // Blend
     float blendRad = uBlendAngle * 3.14159 / 180.0;
     float blendFactor = dot(uv - 0.5, vec2(cos(blendRad), sin(blendRad)));
     blendFactor = smoothstep(-uBlendSoftness, uBlendSoftness, blendFactor);
 
-    // Color mixing
+    // Color mixing (5 colors)
     vec3 color = mix(uColor1, uColor2, smoothstep(-0.5, 0.5, n1));
     color = mix(color, uColor3, smoothstep(-0.3, 0.6, n2) * blendFactor);
+    color = mix(color, uColor4, smoothstep(-0.4, 0.5, n3) * (1.0 - blendFactor));
+    color = mix(color, uColor5, smoothstep(-0.2, 0.7, n4) * 0.5);
 
     // Color balance
     color *= uColorBalance;
@@ -180,6 +186,8 @@ interface GrainientProps {
   readonly color1?: string
   readonly color2?: string
   readonly color3?: string
+  readonly color4?: string
+  readonly color5?: string
   readonly className?: string
 }
 
@@ -206,6 +214,8 @@ export function Grainient({
   color1 = '#FF9FFC',
   color2 = '#5227FF',
   color3 = '#B19EEF',
+  color4 = '#FF9FFC',
+  color5 = '#5227FF',
   className = '',
 }: GrainientProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -248,6 +258,8 @@ export function Grainient({
         uColor1: { value: hexToVec3(color1) },
         uColor2: { value: hexToVec3(color2) },
         uColor3: { value: hexToVec3(color3) },
+        uColor4: { value: hexToVec3(color4) },
+        uColor5: { value: hexToVec3(color5) },
       },
     })
 

@@ -179,9 +179,11 @@ export default function LobbyPage() {
   return (
     <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
       <Grainient
-        color1="#FF9FFC"
-        color2="#5227FF"
-        color3="#B19EEF"
+        color1="#2A2A35"
+        color2="#3D3548"
+        color3="#35353F"
+        color4="#2F3040"
+        color5="#40384A"
         className="fixed inset-0 -z-10"
       />
       <BackgroundDoodles />
@@ -197,8 +199,8 @@ export default function LobbyPage() {
 
         {/* Two-column layout */}
         <div className="grid md:grid-cols-2 gap-5">
-          {/* LEFT COLUMN: Settings + Invite */}
-          <div className="space-y-5">
+          {/* LEFT COLUMN: Settings */}
+          <div>
             {/* Settings Card */}
             <div className="card-hand-drawn p-5 sm:p-6">
               <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
@@ -283,38 +285,10 @@ export default function LobbyPage() {
               </div>
             </div>
 
-            {/* Invite Card */}
-            <div className="card-hand-drawn p-5 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">🔗 Invite Friends</h2>
-
-              <div className="p-3 bg-purple-500/15 border border-purple-400/20 rounded-lg text-white/80 text-xs backdrop-blur-sm mb-4">
-                <p className="font-medium text-white/90 mb-0.5">💡 How to join:</p>
-                <p>Share your room ID or invite link. Friends can join anytime!</p>
-              </div>
-
-              <div className="space-y-2">
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full bg-gradient-to-r from-blue-500/50 to-blue-600/40 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/40 text-blue-100 hover:text-blue-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-                >
-                  {copied ? '✓ Copied!' : '📋 Copy Invite Link'}
-                </button>
-                
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(room.id)
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 2000)
-                  }}
-                  className="w-full bg-gradient-to-r from-cyan-500/25 to-cyan-600/25 hover:from-cyan-500/35 hover:to-cyan-600/45 border border-cyan-400/40 text-cyan-100 hover:text-cyan-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-                >
-                  {copied ? '✓ Copied!' : `🎮 Copy Room ID`}
-                </button>
-              </div>
-            </div>
           </div>
 
-          {/* RIGHT COLUMN: Players */}
+          {/* RIGHT COLUMN: Players + Invite */}
+          <div className="space-y-5">
           <div className="card-hand-drawn p-5 sm:p-6 flex flex-col">
             <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
 
@@ -380,6 +354,37 @@ export default function LobbyPage() {
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Invite Card */}
+          <div className="card-hand-drawn p-5 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">🔗 Invite Friends</h2>
+
+            <div className="p-3 bg-purple-500/15 border border-purple-400/20 rounded-lg text-white/80 text-xs backdrop-blur-sm mb-4">
+              <p className="font-medium text-white/90 mb-0.5">💡 How to join:</p>
+              <p>Share your room ID or invite link. Friends can join anytime!</p>
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleCopyLink}
+                className="w-full bg-gradient-to-r from-blue-500/50 to-blue-600/40 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/40 text-blue-100 hover:text-blue-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+              >
+                {copied ? '✓ Copied!' : '📋 Copy Invite Link'}
+              </button>
+              
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(room.id)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+                className="w-full bg-gradient-to-r from-cyan-500/25 to-cyan-600/25 hover:from-cyan-500/35 hover:to-cyan-600/45 border border-cyan-400/40 text-cyan-100 hover:text-cyan-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+              >
+                {copied ? '✓ Copied!' : `🎮 Copy Room ID`}
+              </button>
+            </div>
+          </div>
           </div>
         </div>
       </div>

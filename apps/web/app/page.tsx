@@ -51,9 +51,11 @@ function HomeContent() {
     <main className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
       {/* Background with gradient and noise */}
       <Grainient
-        color1="#FF9FFC"
-        color2="#5227FF"
-        color3="#B19EEF"
+        color1="#2A2A35"
+        color2="#3D3548"
+        color3="#35353F"
+        color4="#2F3040"
+        color5="#40384A"
         className="fixed inset-0 -z-10"
       />
       <BackgroundDoodles />

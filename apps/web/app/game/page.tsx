@@ -70,9 +70,10 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
                 disabled={!gameEnded}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                   pendingTheme === t.value
-                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    ? 'text-white'
                     : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
                 } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={pendingTheme === t.value ? { backgroundColor: `${themeColor}66`, borderColor: `${themeColor}99` } : undefined}
               >
                 {t.label}
               </button>
@@ -89,9 +90,10 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
                 disabled={!gameEnded}
                 className={`flex-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                   pendingRounds === r
-                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    ? 'text-white'
                     : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
                 } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={pendingRounds === r ? { backgroundColor: `${themeColor}66`, borderColor: `${themeColor}99` } : undefined}
               >
                 {r}
               </button>
@@ -108,9 +110,10 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
                 disabled={!gameEnded}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
                   pendingDrawTime === t
-                    ? 'bg-purple-500/40 border-purple-400/60 text-white'
+                    ? 'text-white'
                     : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20 hover:text-white'
                 } border disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={pendingDrawTime === t ? { backgroundColor: `${themeColor}66`, borderColor: `${themeColor}99` } : undefined}
               >
                 {t}s
               </button>
@@ -127,7 +130,7 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
                 disabled={!gameEnded}
                 className="sr-only peer"
               />
-              <div className="w-8 h-4.5 bg-white/10 border border-white/20 rounded-full peer-checked:bg-purple-500/50 peer-checked:border-purple-400/50 transition-all peer-disabled:opacity-50 w-9 h-5" />
+              <div className="w-9 h-5 bg-white/10 border border-white/20 rounded-full transition-all peer-disabled:opacity-50" style={pendingHints ? { backgroundColor: `${themeColor}80`, borderColor: `${themeColor}80` } : undefined} />
               <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white/60 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white peer-disabled:opacity-50" />
             </div>
             <span className="text-xs text-gray-300 group-hover:text-white/80 transition-colors">Hints</span>

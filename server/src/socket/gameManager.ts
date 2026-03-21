@@ -161,7 +161,7 @@ export class GameManager {
         result += '  '
       } else {
         if (revealed.has(letterIdx)) {
-          result += answer[i]
+          result += answer[i].toUpperCase()
         } else {
           result += '_'
         }
@@ -587,7 +587,13 @@ export class GameManager {
 
     this.roomManager.updateScore(roomId, socket.id, points)
     if (room.drawer) {
-      this.roomManager.updateScore(roomId, room.drawer, Math.floor(points * 0.15))
+      let drawerPoints = Math.floor(points * 0.15)
+      const reactions = this.roomReactions.get(roomId)
+      if (reactions) {
+        const reactionBonus = (reactions.likes * 0.1) - (reactions.dislikes * 0.1)
+        drawerPoints = Math.max(Math.floor(drawerPoints * (1 + reactionBonus)), 0)
+      }
+      this.roomManager.updateScore(roomId, room.drawer, drawerPoints)
     }
 
     // Update streak for the guesser
