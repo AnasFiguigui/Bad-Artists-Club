@@ -11,6 +11,7 @@ interface PlayerLeaderboardProps {
   gameState?: 'lobby' | 'playing' | 'results'
   themeColor?: string
   onKick?: (targetId: string) => void
+  streaks?: Record<string, number>
 }
 
 export function PlayerLeaderboard({
@@ -22,6 +23,7 @@ export function PlayerLeaderboard({
   gameState,
   themeColor,
   onKick,
+  streaks = {},
 }: Readonly<PlayerLeaderboardProps>) {
   const sorted = [...players].sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
   const isHost = currentPlayerId === hostId
@@ -80,7 +82,13 @@ export function PlayerLeaderboard({
                     <span className="text-[10px] text-yellow-400 font-bold">[Host]</span>
                   )}
                   {isDrawing && (
-                    <span className="text-[10px] text-orange-400">✎</span>
+                    <span className="text-[10px] text-orange-400 animate-pencil-wiggle">✎</span>
+                  )}
+                  {player.isSpectator && (
+                    <span className="text-[10px] text-gray-400 font-bold">[Spectating]</span>
+                  )}
+                  {(streaks[player.id] || 0) >= 3 && (
+                    <span className="text-xs animate-flame" title={`${streaks[player.id]} streak!`}>🔥{streaks[player.id]}</span>
                   )}
                 </div>
               </div>

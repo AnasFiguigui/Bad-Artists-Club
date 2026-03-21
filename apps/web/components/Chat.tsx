@@ -6,6 +6,7 @@ import { ChatMessage as ChatMessageType } from '@/lib/types'
 interface ChatProps {
   isDrawer: boolean
   isCooldown?: boolean
+  isSpectator?: boolean
   messages: ChatMessageType[]
   onSendMessage: (message: string) => void
   roomId: string
@@ -16,7 +17,7 @@ export interface ChatHandle {
   clearInput: () => void
 }
 
-export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, isCooldown, messages, onSendMessage, roomId, themeColor }, ref) {
+export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, isCooldown, isSpectator, messages, onSendMessage, roomId, themeColor }, ref) {
   const [input, setInput] = useState('')
   const [lastGuessTime, setLastGuessTime] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -48,7 +49,7 @@ export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, 
     }
   }
 
-  const chatDisabled = isDrawer || isCooldown
+  const chatDisabled = isDrawer || isCooldown || isSpectator
 
   return (
     <div className="flex flex-col h-full w-full">
@@ -96,7 +97,7 @@ export const Chat = forwardRef<ChatHandle, ChatProps>(function Chat({ isDrawer, 
       {chatDisabled ? (
         <div className="p-2 border-t border-gray-700/50">
           <p className="text-yellow-400 text-xs italic text-center">
-            {isCooldown ? 'Chat paused — next turn starting...' : 'You are drawing — cannot chat'}
+            {isSpectator ? 'Spectators cannot chat' : isCooldown ? 'Chat paused — next turn starting...' : 'You are drawing — cannot chat'}
           </p>
         </div>
       ) : (

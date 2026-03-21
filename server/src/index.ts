@@ -198,7 +198,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('reroll', (data: { roomId: string }, callback) => {
-    if (!rateLimit(socket.id, 'reroll', 1, 5000)) {
+    if (!rateLimit(socket.id, 'reroll', 1, 20000)) {
       return callback({ success: false, error: 'Too many rerolls' })
     }
     try {
@@ -285,6 +285,19 @@ io.on('connection', (socket: Socket) => {
       gameManager.handleVoteReaction(socket, data.roomId, data.type)
     } catch (error) {
       console.error('[Vote] Error:', error)
+    }
+  })
+
+  socket.on('toggle-spectator', (data: { roomId: string }, callback) => {
+    if (!rateLimit(socket.id, 'toggle-spectator', 3, 5000)) {
+      return callback({ success: false, error: 'Too many requests' })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
+    try {
+      const result = gameManager.handleToggleSpectator(socket, data.roomId)
+      callback(result)
+    } catch (error) {
+      callback({ success: false, error: (error as Error).message })
     }
   })
 

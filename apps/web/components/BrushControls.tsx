@@ -74,6 +74,7 @@ export function BrushControls({
   const [activeTool, setActiveTool] = useState<ToolType>(externalTool || 'brush')
   const [activeColor, setActiveColor] = useState('#000000')
   const [brushSize, setBrushSize] = useState(externalSize || 5)
+  const [favoriteColors, setFavoriteColors] = useState<(string | null)[]>([null, null, null, null])
   const colorPickerRef = useRef<HTMLInputElement>(null)
 
   // Sync external size/tool changes (e.g. from mouse wheel or keyboard shortcuts)
@@ -90,6 +91,12 @@ export function BrushControls({
   }, [externalTool])
 
   if (!isDrawer) return null
+
+  const handleSaveFavorite = (index: number) => {
+    const updated = [...favoriteColors]
+    updated[index] = activeColor
+    setFavoriteColors(updated)
+  }
 
   const handleToolChange = (tool: ToolType) => {
     setActiveTool(tool)
@@ -116,12 +123,12 @@ export function BrushControls({
       <div className="flex items-center gap-1">
         <button
           onClick={() => handleToolChange('brush')}
-          title="Brush"
-          className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+          className={`tooltip-shortcut p-1.5 sm:p-2 rounded-lg transition-colors ${
             activeTool === 'brush'
               ? 'text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
           }`}
+          data-tooltip="Brush (B)"
           style={activeTool === 'brush' ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
         >
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -130,12 +137,12 @@ export function BrushControls({
         </button>
         <button
           onClick={() => handleToolChange('eraser')}
-          title="Eraser"
-          className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+          className={`tooltip-shortcut p-1.5 sm:p-2 rounded-lg transition-colors ${
             activeTool === 'eraser'
               ? 'bg-yellow-600 text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
           }`}
+          data-tooltip="Eraser (E)"
         >
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53a4.008 4.008 0 01-5.66 0L2.81 17c-.78-.79-.78-2.05 0-2.84l10.6-10.6c.79-.78 2.05-.78 2.83 0zM4.22 15.58l3.54 3.53c.78.79 2.04.79 2.83 0l3.53-3.53-4.95-4.95-4.95 4.95z" />
@@ -143,13 +150,13 @@ export function BrushControls({
         </button>
         <button
           onClick={() => handleToolChange('fill')}
-          title="Fill (bucket)"
-          className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+          className={`tooltip-shortcut p-1.5 sm:p-2 rounded-lg transition-colors ${
             activeTool === 'fill'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
           }`}
-        >
+          data-tooltip="Fill (F)">
+        
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M16.56 8.94L7.62 0 6.21 1.41l2.38 2.38-5.15 5.15a1.49 1.49 0 000 2.12l5.5 5.5c.29.29.68.44 1.06.44s.77-.15 1.06-.44l5.5-5.5c.59-.58.59-1.53 0-2.12zM5.21 10L10 5.21 14.79 10H5.21zM19 11.5s-2 2.17-2 3.5c0 1.1.9 2 2 2s2-.9 2-2c0-1.33-2-3.5-2-3.5z" />
           </svg>
@@ -231,8 +238,8 @@ export function BrushControls({
       <div className="flex items-center gap-1">
         <button
           onClick={onUndo}
-          title="Undo"
-          className="p-1.5 sm:p-2 rounded-lg bg-gray-800 text-orange-400 hover:bg-orange-900/50 hover:text-orange-300 transition-colors"
+          className="tooltip-shortcut p-1.5 sm:p-2 rounded-lg bg-gray-800 text-orange-400 hover:bg-orange-900/50 hover:text-orange-300 transition-colors"
+          data-tooltip="Undo (Ctrl+Z)"
         >
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l5-5M3 10l5 5" />
@@ -240,9 +247,9 @@ export function BrushControls({
         </button>
         <button
           onClick={onClear}
-          title="Clear canvas"
-          className="p-1.5 sm:p-2 rounded-lg bg-gray-800 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
-        >
+          className="tooltip-shortcut p-1.5 sm:p-2 rounded-lg bg-gray-800 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-colors"
+          data-tooltip="Clear (Del)">
+        
           <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
@@ -267,6 +274,25 @@ export function BrushControls({
             style={activeTool === tool ? { backgroundColor: themeColor || '#4f46e5' } : undefined}
           >
             {icon}
+          </button>
+        ))}
+      </div>
+
+      {/* Color favorites */}
+      <div className="w-px h-8 bg-gray-700 hidden sm:block" />
+      <div className="flex items-center gap-1">
+        {favoriteColors.map((fav, i) => (
+          <button
+            key={i}
+            onClick={() => fav && handleColorChange(fav)}
+            onContextMenu={(e) => { e.preventDefault(); handleSaveFavorite(i) }}
+            className={`w-5 h-5 sm:w-6 sm:h-6 rounded border transition-transform hover:scale-110 ${
+              fav ? 'border-gray-500' : 'border-dashed border-gray-600'
+            }`}
+            style={fav ? { backgroundColor: fav } : { backgroundColor: 'transparent' }}
+            title={fav ? `Click to use, right-click to save` : `Right-click to save current color`}
+          >
+            {!fav && <span className="text-gray-600 text-[10px] leading-none">+</span>}
           </button>
         ))}
       </div>

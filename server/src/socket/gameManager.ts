@@ -47,6 +47,10 @@ export class GameManager {
   private readonly altAnswers: Map<string, string> = new Map()
   // Per-room like/dislike reactions (reset each turn)
   private readonly roomReactions: Map<string, { likes: number; dislikes: number; voted: Map<string, string> }> = new Map()
+  // Per-room streak tracking: consecutive correct guesses per player
+  private readonly playerStreaks: Map<string, Map<string, number>> = new Map()
+  // Per-room hint reveal tracking: which positions are revealed (for spacing out reveals)
+  private readonly revealedHintPositions: Map<string, Set<number>> = new Map()
   private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
@@ -97,6 +101,66 @@ export class GameManager {
   private generateHint(name: string): string {
     // Preserve spaces, replace letters with underscores
     return name.split('').map((c: string) => c === ' ' ? '  ' : '_ ').join('').trim()
+  }
+
+  private getDynamicHint(roomId: string, hint: string, answer: string, timeElapsed: number, drawTime: number): string {
+    // Don't reveal during first 30 seconds
+    if (timeElapsed < 30) return hint
+
+    // Initialize reveal set if needed
+    if (!this.revealedHintPositions.has(roomId)) {
+      this.revealedHintPositions.set(roomId, new Set())
+    }
+    const revealed = this.revealedHintPositions.get(roomId)!
+
+    // Calculate maximum letters that can be revealed (50% max, but min 1 per 3 letters)
+    const answerLetters = answer.replace(/ /g, '')
+    const letterCount = answerLetters.length
+    const maxReveals = Math.max(Math.ceil(letterCount / 3), Math.floor(letterCount * 0.5))
+
+    // Calculate current reveal count based on time progression (30s to drawTime)
+    const progress = Math.min((timeElapsed - 30) / (drawTime - 30), 1)
+    const currentRevealsCount = Math.floor(progress * maxReveals)
+
+    // Add new reveals if we haven't reached the max yet
+    if (revealed.size < currentRevealsCount) {
+      // Find all word positions (non-space, non-underscore indices in answer format)
+      const answerLetterIndices: number[] = []
+      let letterIdx = 0
+      for (let i = 0; i < answer.length; i++) {
+        if (answer[i] !== ' ') {
+          if (!revealed.has(letterIdx)) {
+            answerLetterIndices.push(letterIdx)
+          }
+          letterIdx++
+        }
+      }
+      
+      // Randomly pick positions to reveal
+      while (revealed.size < currentRevealsCount && answerLetterIndices.length > 0) {
+        const idx = Math.floor(Math.random() * answerLetterIndices.length)
+        revealed.add(answerLetterIndices[idx])
+        answerLetterIndices.splice(idx, 1)
+      }
+    }
+
+    // Build the modified hint string
+    let result = ''
+    let letterIdx = 0
+    for (let i = 0; i < answer.length; i++) {
+      if (answer[i] === ' ') {
+        result += '  '
+      } else {
+        if (revealed.has(letterIdx)) {
+          result += answer[i]
+        } else {
+          result += '_'
+        }
+        letterIdx++
+      }
+    }
+    // Add spacing like original hint
+    return result.split('').map((c: string) => c === ' ' ? ' ' : c + ' ').join('').trim()
   }
 
   private validateUsername(name: unknown): string {
@@ -151,7 +215,7 @@ export class GameManager {
 
     // Return room data — caller sends it back via callback
     // Client checks room.state to know if game is already in progress
-    return updatedRoom
+    return this.sanitizeRoom(updatedRoom)
   }
 
   handleReady(socket: Socket, roomId: string): void {
@@ -166,7 +230,7 @@ export class GameManager {
     const updatedRoom = this.roomManager.getRoom(roomId)!
     console.log(`[Room] Player ${socket.id} ready=${newReady} in room ${roomId}`)
 
-    this.io.to(roomId).emit('player-ready', updatedRoom)
+    this.io.to(roomId).emit('player-ready', this.sanitizeRoom(updatedRoom))
   }
 
   handleEnterFreeDraw(socket: Socket, roomId: string): void {
@@ -211,7 +275,8 @@ export class GameManager {
       return
     }
 
-    const playerCount = room.players.length
+    const activePlayers = room.players.filter((p: { isSpectator?: boolean }) => !p.isSpectator)
+    const playerCount = activePlayers.length
     const totalTurns = room.totalRounds * playerCount
 
     if (room.turnIndex >= totalTurns) {
@@ -223,10 +288,10 @@ export class GameManager {
       return
     }
 
-    // Calculate round and drawer from turnIndex
+    // Calculate round and drawer from turnIndex (only active players)
     const currentRound = Math.floor(room.turnIndex / playerCount) + 1
     const drawerIndex = room.turnIndex % playerCount
-    const drawer = room.players[drawerIndex]
+    const drawer = activePlayers[drawerIndex]
 
     room.round = currentRound
     console.log(`[Game] Turn ${room.turnIndex + 1}/${totalTurns}, Round ${currentRound}/${room.totalRounds}, drawer: ${drawer.username}`)
@@ -314,11 +379,25 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) return
 
+    // Reset hint reveals for this turn
+    this.revealedHintPositions.delete(roomId)
+
     let timeRemaining = room.drawTime
+    const startTime = Date.now()
 
     const timer = setInterval(() => {
       timeRemaining--
+      const timeElapsed = room.drawTime - timeRemaining
+
+      // Emit timer update
       this.io.to(roomId).emit('timer-update', { timeRemaining })
+
+      // Calculate and emit dynamic hint update for guessers (every ~5 seconds after 30s start)
+      if (timeElapsed >= 30 && timeElapsed % 5 === 0 && room.hint && room.drawer && room.answer) {
+        const dynamicHint = this.getDynamicHint(roomId, room.hint, room.answer, timeElapsed, room.drawTime)
+        const guesserView = { hint: dynamicHint }
+        this.io.to(roomId).except(room.drawer).emit('hint-update', guesserView)
+      }
 
       if (timeRemaining <= 0) {
         clearInterval(timer)
@@ -335,13 +414,34 @@ export class GameManager {
     const room = this.roomManager.getRoom(roomId)
     if (!room) return
 
-    const playerCount = room.players.length
+    const activePlayers = room.players.filter((p: { isSpectator?: boolean }) => !p.isSpectator)
+    const playerCount = activePlayers.length
     const totalTurns = room.totalRounds * playerCount
+
+    // Reset streaks for players who didn't guess this turn
+    const streaks = this.playerStreaks.get(roomId)
+    if (streaks) {
+      for (const p of activePlayers) {
+        if (p.id !== room.drawer && !room.correctGuessers.includes(p.id)) {
+          streaks.set(p.id, 0)
+        }
+      }
+    }
+
+    // Build recap data: top guesser (first correct), vote scores
+    const reactions = this.roomReactions.get(roomId)
+    const topGuesser = room.correctGuessers.length > 0
+      ? room.players.find((p: { id: string }) => p.id === room.correctGuessers[0])?.username
+      : undefined
 
     // Reveal the answer to everyone
     this.io.to(roomId).emit('round-ended', {
       answer: room.answer,
       scores: room.scores,
+      topGuesser,
+      totalGuessers: room.correctGuessers.length,
+      drawerLikes: reactions?.likes || 0,
+      drawerDislikes: reactions?.dislikes || 0,
     })
 
     // Advance to next turn
@@ -461,12 +561,26 @@ export class GameManager {
 
     const roundStart = this.roundStartTimes.get(roomId) || Date.now()
     const elapsedSeconds = Math.floor((Date.now() - roundStart) / 1000)
-    const points = Math.max(1000 - elapsedSeconds * 5, 100)
+    const revealedCount = this.revealedHintPositions.get(roomId)?.size || 0
+    // Scoring: 500 base, -1pt/sec time penalty, -40pts per revealed hint letter
+    // Before hints (0-30s): ~470-500 pts (rewards fast guesses)
+    // During hints (30s+): drops significantly with each letter reveal
+    // Minimum: 50 pts
+    const points = Math.max(500 - elapsedSeconds - (revealedCount * 40), 50)
 
     this.roomManager.updateScore(roomId, socket.id, points)
     if (room.drawer) {
       this.roomManager.updateScore(roomId, room.drawer, Math.floor(points * 0.7))
     }
+
+    // Update streak for the guesser
+    let streaks = this.playerStreaks.get(roomId)
+    if (!streaks) {
+      streaks = new Map()
+      this.playerStreaks.set(roomId, streaks)
+    }
+    const currentStreak = (streaks.get(socket.id) || 0) + 1
+    streaks.set(socket.id, currentStreak)
 
     this.roomManager.syncPlayerScores(roomId)
 
@@ -474,10 +588,18 @@ export class GameManager {
     const revealedIds = new Set([...room.correctGuessers, ...(room.drawer ? [room.drawer] : [])])
     for (const p of room.players) {
       const showAnswer = revealedIds.has(p.id)
-      this.io.to(p.id).emit('guess-correct', { ...updatedRoom, answer: showAnswer ? room.answer : undefined })
+      this.io.to(p.id).emit('guess-correct', {
+        ...updatedRoom,
+        answer: showAnswer ? room.answer : undefined,
+        // Extra data for the guesser who just got it right
+        _guesserId: socket.id,
+        _points: points,
+        _streak: currentStreak,
+        _position: position,
+      })
     }
 
-    const nonDrawerPlayers = room.players.filter((p: { id: string }) => p.id !== room.drawer)
+    const nonDrawerPlayers = room.players.filter((p: { id: string; isSpectator?: boolean }) => p.id !== room.drawer && !p.isSpectator)
     if (room.correctGuessers.length >= nonDrawerPlayers.length) {
       const timer = this.timers.get(roomId)
       if (timer) clearInterval(timer)
@@ -533,7 +655,7 @@ export class GameManager {
       return { success: true, isCorrect: false }
     }
 
-    if (player.isDrawer || room.correctGuessers.includes(socket.id)) {
+    if (player.isDrawer || player.isSpectator || room.correctGuessers.includes(socket.id)) {
       return { success: false }
     }
 
@@ -641,6 +763,9 @@ export class GameManager {
     } else {
       this.altAnswers.delete(roomId)
     }
+
+    // Reset revealed hint positions for the new word
+    this.revealedHintPositions.delete(roomId)
 
     console.log(`[Game] Reroll in ${roomId}: new character "${character.name}"`)
 
@@ -886,5 +1011,63 @@ export class GameManager {
     }
 
     this.io.to(room.id).emit('player-left', this.sanitizeRoom(updatedRoom))
+  }
+
+  handleToggleSpectator(socket: Socket, roomId: string): { success: boolean; isSpectator?: boolean; error?: string } {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) return { success: false, error: 'Room not found' }
+
+    const player = room.players.find((p: { id: string }) => p.id === socket.id)
+    if (!player) return { success: false, error: 'Player not in room' }
+
+    // Can't toggle while drawing
+    if (room.state === 'playing' && room.drawer === socket.id) {
+      return { success: false, error: 'Cannot toggle while drawing' }
+    }
+
+    const newSpectator = !player.isSpectator
+    player.isSpectator = newSpectator
+
+    // If host becomes spectator, transfer host to first non-spectator
+    if (newSpectator && room.host === socket.id) {
+      const newHost = room.players.find((p: { id: string; isSpectator?: boolean }) => p.id !== socket.id && !p.isSpectator)
+      if (newHost) {
+        room.host = newHost.id
+        newHost.isHost = true
+        player.isHost = false
+        this.io.to(roomId).emit('host-changed', {
+          newHostId: newHost.id,
+          newHostUsername: newHost.username,
+        })
+      }
+    }
+
+    // If un-spectating and there's no host, become host
+    if (!newSpectator && !room.players.some((p: { id: string; isHost: boolean; isSpectator?: boolean }) => p.isHost && !p.isSpectator)) {
+      room.host = socket.id
+      player.isHost = true
+      this.io.to(roomId).emit('host-changed', {
+        newHostId: socket.id,
+        newHostUsername: player.username,
+      })
+    }
+
+    // Check if game needs to end (not enough active players)
+    const activePlayers = room.players.filter((p: { isSpectator?: boolean }) => !p.isSpectator)
+    if (activePlayers.length < 2 && room.state === 'playing') {
+      const timer = this.timers.get(roomId)
+      if (timer) clearInterval(timer)
+      this.timers.delete(roomId)
+      this.roundStartTimes.delete(roomId)
+      this.cooldownRooms.delete(roomId)
+      this.roomManager.updateRoomState(roomId, 'results')
+      this.roomManager.syncPlayerScores(roomId)
+      const finalRoom = this.roomManager.getRoom(roomId)!
+      this.io.to(roomId).emit('game-ended', finalRoom)
+      return { success: true, isSpectator: newSpectator }
+    }
+
+    this.io.to(roomId).emit('spectator-update', this.sanitizeRoom(room))
+    return { success: true, isSpectator: newSpectator }
   }
 }

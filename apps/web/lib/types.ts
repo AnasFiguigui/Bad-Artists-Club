@@ -9,6 +9,7 @@ export interface Player {
   score: number
   isDrawer?: boolean
   isHost: boolean
+  isSpectator?: boolean
 }
 
 export interface Room {

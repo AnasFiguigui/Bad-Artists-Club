@@ -11,6 +11,7 @@ import { GameNavbar } from '@/components/GameNavbar'
 import { PlayerLeaderboard } from '@/components/PlayerLeaderboard'
 import { BrushControls } from '@/components/BrushControls'
 import { getThemeConfig } from '@/lib/themeConfig'
+import { playCorrectGuess, playTimerTick, playRoundStart, playGameEnd, playVote, playSpeedBonus, playStreakSound, playPlayerJoined } from '@/lib/sounds'
 
 function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, onEndGame }: Readonly<{
   room: Room
@@ -150,6 +151,7 @@ export default function GamePage() {
   const [gameEnded, setGameEnded] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const [muted, setMuted] = useState(false)
+  const mutedRef = useRef(false)
   const [showReference, setShowReference] = useState(true)
   const [mobilePanel, setMobilePanel] = useState<'canvas' | 'chat' | 'players'>('canvas')
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -160,6 +162,19 @@ export default function GamePage() {
   const [hasVoted, setHasVoted] = useState(false)
   const [voteType, setVoteType] = useState<'like' | 'dislike' | null>(null)
   const [voteAnimating, setVoteAnimating] = useState(false)
+
+  // Feature state: streaks, speed bonuses, floating emojis, recap, spectator, celebration
+  const [playerStreaks, setPlayerStreaks] = useState<Record<string, number>>({})
+  const [speedBonuses, setSpeedBonuses] = useState<{ id: number; text: string; x: number; y: number }[]>([])
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: number; emoji: string; x: number }[]>([])
+  const [showRecap, setShowRecap] = useState(false)
+  const [recapData, setRecapData] = useState<{ answer: string; topGuesser?: string; totalGuessers: number; drawerLikes: number; drawerDislikes: number } | null>(null)
+  const [isSpectator, setIsSpectator] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [rerollCooldown, setRerollCooldown] = useState(0)
+  const speedBonusIdRef = useRef(0)
+  const floatingEmojiIdRef = useRef(0)
+  const rerollCooldownIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const canvasRef = useRef<CanvasHandle>(null)
   const chatRef = useRef<ChatHandle>(null)
@@ -183,6 +198,9 @@ export default function GamePage() {
       canvasRef.current?.drawStroke(stroke)
     }
   }, [])
+
+  // Keep mutedRef synced with muted state so socket callbacks read current value
+  useEffect(() => { mutedRef.current = muted }, [muted])
 
   useEffect(() => {
     if (!username || !roomId) {
@@ -215,6 +233,26 @@ export default function GamePage() {
       setHasVoted(false)
       setVoteType(null)
       setVoteAnimating(false)
+      setShowRecap(false)
+      setRecapData(null)
+      setRerollCooldown(20)
+      
+      // Clear existing cooldown interval
+      if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
+      
+      // Set up reroll cooldown countdown (20s)
+      rerollCooldownIntervalRef.current = setInterval(() => {
+        setRerollCooldown((prev) => {
+          if (prev <= 0.1) {
+            if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
+            return 0
+          }
+          return prev - 0.1
+        })
+      }, 100)
+      
+      // Play round start sound
+      if (!mutedRef.current) playRoundStart()
       // Reset brush controls and chat input for new round
       setBrushKey((k) => k + 1)
       chatRef.current?.clearInput()
@@ -240,9 +278,11 @@ export default function GamePage() {
       })
     })
 
-    sock.on('round-ended', (data: { answer: string; scores: Record<string, number> }) => {
+    sock.on('round-ended', (data: { answer: string; scores: Record<string, number>; topGuesser?: string; totalGuessers: number; drawerLikes: number; drawerDislikes: number }) => {
       console.log('[Game] round-ended, answer was:', data.answer)
       setRoundAnswer(data.answer)
+      setRecapData({ answer: data.answer, topGuesser: data.topGuesser, totalGuessers: data.totalGuessers, drawerLikes: data.drawerLikes, drawerDislikes: data.drawerDislikes })
+      setShowRecap(true)
     })
 
     sock.on('player-joined', (updatedRoom: Room) => {
@@ -255,6 +295,7 @@ export default function GamePage() {
       const newPlayer = updatedRoom.players.at(-1)
       if (newPlayer) {
         setNotification(`${newPlayer.username} joined the game!`)
+        if (!mutedRef.current) playPlayerJoined()
         setTimeout(() => setNotification(null), 3000)
       }
     })
@@ -270,6 +311,7 @@ export default function GamePage() {
 
     sock.on('timer-update', ({ timeRemaining: t }: { timeRemaining: number }) => {
       setTimeRemaining(t)
+      if (t <= 10 && t > 0 && !mutedRef.current) playTimerTick()
     })
 
     sock.on('draw', (stroke: DrawStroke) => {
@@ -281,8 +323,30 @@ export default function GamePage() {
       setMessages((prev) => [...prev, message])
     })
 
-    sock.on('guess-correct', (updatedRoom: Room) => {
+    sock.on('guess-correct', (updatedRoom: Room & { _guesserId?: string; _points?: number; _streak?: number; _position?: number }) => {
       setRoom(updatedRoom)
+      const { _guesserId, _points, _streak, _position } = updatedRoom
+
+      // Update streaks
+      if (_guesserId && _streak) {
+        setPlayerStreaks((prev) => ({ ...prev, [_guesserId]: _streak }))
+      }
+
+      // Play sounds
+      if (!mutedRef.current) {
+        playCorrectGuess()
+        if (_points && _points >= 400) playSpeedBonus()
+        if (_streak && _streak >= 3) playStreakSound(_streak)
+      }
+
+      // Show speed bonus floating text
+      if (_guesserId && _points && _points >= 250) {
+        const id = ++speedBonusIdRef.current
+        const label = _points >= 400 ? `+${_points} FAST!` : `+${_points}`
+        const xPos = 30 + Math.random() * 40
+        setSpeedBonuses((prev) => [...prev, { id, text: label, x: xPos, y: 50 }])
+        setTimeout(() => setSpeedBonuses((prev) => prev.filter((b) => b.id !== id)), 2000)
+      }
     })
 
     sock.on('game-ended', (endedRoom: Room) => {
@@ -290,7 +354,13 @@ export default function GamePage() {
       setRoom(endedRoom)
       setRoundAnswer(null)
       setTimeRemaining(0)
+      setShowRecap(false)
+      setPlayerStreaks({})
       gameStore.setState({ room: endedRoom })
+      // Play game end sound and show celebration
+      if (!mutedRef.current) playGameEnd()
+      setShowCelebration(true)
+      setTimeout(() => setShowCelebration(false), 5000)
       // Clear canvas for free draw mode
       canvasRef.current?.clear()
     })
@@ -311,6 +381,10 @@ export default function GamePage() {
       setMessages([])
       setRoundAnswer(null)
       setCooldown(0)
+      setPlayerStreaks({})
+      setShowRecap(false)
+      setRecapData(null)
+      setShowCelebration(false)
       canvasRef.current?.clear()
       gameStore.setState({ room: updatedRoom })
     })
@@ -324,6 +398,10 @@ export default function GamePage() {
     })
 
     sock.on('reroll', ({ hint }: { hint: string }) => {
+      setRoom((prev) => prev ? { ...prev, hint } : prev)
+    })
+
+    sock.on('hint-update', ({ hint }: { hint: string }) => {
       setRoom((prev) => prev ? { ...prev, hint } : prev)
     })
 
@@ -350,6 +428,18 @@ export default function GamePage() {
     sock.on('reaction-update', (data: { likes: number; dislikes: number }) => {
       setLikes(data.likes)
       setDislikes(data.dislikes)
+    })
+
+    sock.on('spectator-update', (updatedRoom: Room) => {
+      setRoom((prev) => ({
+        ...updatedRoom,
+        answer: updatedRoom.answer ?? prev?.answer,
+        drawer: updatedRoom.drawer ?? prev?.drawer,
+        hint: updatedRoom.hint ?? prev?.hint,
+      }))
+      // Update our own spectator state
+      const me = updatedRoom.players.find((p: { id: string }) => p.id === sock.id)
+      if (me) setIsSpectator(!!me.isSpectator)
     })
 
     // --- Request current game state (handles race condition) ---
@@ -398,6 +488,7 @@ export default function GamePage() {
 
     return () => {
       clearTimeout(roundTimeout)
+      if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
       sock.off('round-start')
       sock.off('round-ended')
       sock.off('choose-word')
@@ -414,10 +505,12 @@ export default function GamePage() {
       sock.off('canvas-cleared')
       sock.off('undo')
       sock.off('reroll')
+      sock.off('hint-update')
       sock.off('kicked')
       sock.off('host-changed')
       sock.off('settings-updated')
       sock.off('reaction-update')
+      sock.off('spectator-update')
     }
   }, [username, roomId, router])
 
@@ -465,8 +558,8 @@ export default function GamePage() {
 
   // Compute canDraw early so hooks below can use it (hooks cannot be called after early return)
   const isCooldown = cooldown > 0
-  const canDraw = gameEnded || (isDrawer && !isCooldown && !isChoosingWord)
-  const showReactions = !gameEnded && !isCooldown && room?.state === 'playing' && !!room?.drawer
+  const canDraw = isSpectator ? false : (gameEnded || (isDrawer && !isCooldown && !isChoosingWord))
+  const showReactions = !gameEnded && !isCooldown && room?.state === 'playing' && !!room?.drawer && !isSpectator
 
   const BRUSH_SIZES = [2, 5, 10, 18, 30] as const
 
@@ -529,12 +622,31 @@ export default function GamePage() {
   }, [canDraw, handleUndo])
 
   const handleReroll = () => {
+    if (rerollCooldown > 0) {
+      setNotification(`Reroll ready in ${Math.ceil(rerollCooldown)}s`)
+      setTimeout(() => setNotification(null), 2000)
+      return
+    }
+    
     if (socket && roomId) {
       socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string }) => {
         if (response.success && response.answer && response.hint) {
           setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint } : prev)
           canvasRef.current?.clear()
           socket.emit('clear-canvas', { roomId })
+          setRerollCooldown(20)
+          
+          // Reset cooldown interval
+          if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
+          rerollCooldownIntervalRef.current = setInterval(() => {
+            setRerollCooldown((prev) => {
+              if (prev <= 0.1) {
+                if (rerollCooldownIntervalRef.current) clearInterval(rerollCooldownIntervalRef.current)
+                return 0
+              }
+              return prev - 0.1
+            })
+          }, 100)
         }
       })
     }
@@ -566,6 +678,13 @@ export default function GamePage() {
       setVoteType(type)
       setVoteAnimating(true)
       setTimeout(() => setVoteAnimating(false), 400)
+      if (!muted) playVote()
+      // Spawn floating emoji
+      const id = ++floatingEmojiIdRef.current
+      const emoji = type === 'like' ? '👍' : '👎'
+      const x = 40 + Math.random() * 20
+      setFloatingEmojis((prev) => [...prev, { id, emoji, x }])
+      setTimeout(() => setFloatingEmojis((prev) => prev.filter((e) => e.id !== id)), 1600)
     }
   }
 
@@ -589,6 +708,19 @@ export default function GamePage() {
       socket.emit('end-game', { roomId }, (response: { success: boolean; error?: string }) => {
         if (!response.success) {
           setNotification(response.error || 'Failed to end game')
+          setTimeout(() => setNotification(null), 3000)
+        }
+      })
+    }
+  }
+
+  const handleToggleSpectator = () => {
+    if (socket && roomId) {
+      socket.emit('toggle-spectator', { roomId }, (response: { success: boolean; isSpectator?: boolean; error?: string }) => {
+        if (response.success) {
+          setIsSpectator(!!response.isSpectator)
+        } else {
+          setNotification(response.error || 'Cannot toggle spectator')
           setTimeout(() => setNotification(null), 3000)
         }
       })
@@ -637,6 +769,8 @@ export default function GamePage() {
         themeColor={themeColors.primary}
         isChoosingWord={isChoosingWord}
         themeName={themeConfig.name}
+        isSpectator={isSpectator}
+        onToggleSpectator={handleToggleSpectator}
       />
 
       {/* Floating toast notifications */}
@@ -646,7 +780,7 @@ export default function GamePage() {
         </div>
       )}
       {cooldown > 0 && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}e6` }}>
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-40 px-6 py-3 text-white text-lg font-bold rounded-lg shadow-lg backdrop-blur-sm" style={{ background: `${themeColors.primary}cc`, border: `2px solid ${themeColors.primary}` }}>
           Next turn in {cooldown}...
         </div>
       )}
@@ -714,6 +848,7 @@ export default function GamePage() {
               gameState={room.state}
               themeColor={themeColors.primary}
               onKick={isHost ? handleKickPlayer : undefined}
+              streaks={playerStreaks}
             />
           </div>
 
@@ -744,16 +879,21 @@ export default function GamePage() {
               )}
               {/* Action buttons */}
               <div className="flex gap-1">
-                {room.theme !== 'custom' && (
+              {room.theme !== 'custom' && (
                   <button
                     onClick={handleReroll}
-                    title="Reroll word"
-                    className="flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300 transition-colors text-[10px] font-medium"
+                    disabled={rerollCooldown > 0}
+                    title={rerollCooldown > 0 ? `Reroll ready in ${Math.ceil(rerollCooldown)}s` : "Reroll word"}
+                    className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
+                      rerollCooldown > 0
+                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
+                        : 'bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300'
+                    }`}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    Reroll
+                    {rerollCooldown > 0 ? `${Math.ceil(rerollCooldown)}s` : 'Reroll'}
                   </button>
                 )}
                 <button
@@ -898,6 +1038,7 @@ export default function GamePage() {
               ref={chatRef}
               isDrawer={gameEnded ? false : isDrawer}
               isCooldown={isCooldown && !gameEnded}
+              isSpectator={isSpectator}
               messages={messages}
               onSendMessage={handleSendMessage}
               roomId={roomId}
@@ -970,6 +1111,96 @@ export default function GamePage() {
       {isChoosingWord && !isDrawer && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm font-bold animate-slide-down" style={{ background: `${themeColors.primary}cc` }}>
           ✏️ Drawer is choosing a word...
+        </div>
+      )}
+
+      {/* Spectating banner */}
+      {isSpectator && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 text-white/80 text-xs rounded-lg shadow-lg backdrop-blur-sm font-bold bg-gray-800/80 border border-gray-600/50">
+          👁 Spectating
+        </div>
+      )}
+
+      {/* Floating vote emojis (Twitch-style) */}
+      {floatingEmojis.map((emoji) => (
+        <div
+          key={emoji.id}
+          className="fixed z-50 text-3xl animate-float-emoji pointer-events-none"
+          style={{ left: `${emoji.x}%`, bottom: '15%' }}
+        >
+          {emoji.emoji}
+        </div>
+      ))}
+
+      {/* Speed bonus floating text */}
+      {speedBonuses.map((bonus) => (
+        <div
+          key={bonus.id}
+          className="fixed z-50 animate-speed-bonus pointer-events-none font-bold text-lg"
+          style={{ left: `${bonus.x}%`, top: '40%', color: themeColors.primary, textShadow: '0 0 8px rgba(0,0,0,0.5)' }}
+        >
+          {bonus.text}
+        </div>
+      ))}
+
+      {/* Round Recap Overlay (3s between rounds) */}
+      {showRecap && recapData && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <div className="animate-recap bg-black/70 backdrop-blur-md rounded-2xl px-8 py-6 border border-white/10 text-center max-w-sm">
+            <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">The answer was</p>
+            <p className="text-white font-bold text-2xl mb-3">{recapData.answer}</p>
+            {recapData.topGuesser && (
+              <p className="text-sm text-gray-300 mb-1">
+                ⚡ First guess: <span className="font-bold" style={{ color: themeColors.primary }}>{recapData.topGuesser}</span>
+              </p>
+            )}
+            <p className="text-xs text-gray-400 mb-2">
+              {recapData.totalGuessers} player{recapData.totalGuessers !== 1 ? 's' : ''} guessed correctly
+            </p>
+            <div className="flex items-center justify-center gap-3 text-sm">
+              <span>👍 {recapData.drawerLikes}</span>
+              <span>👎 {recapData.drawerDislikes}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Winner Celebration Overlay */}
+      {showCelebration && room && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm pointer-events-none">
+          <div className="animate-celebration text-center">
+            {/* Confetti pieces */}
+            {Array.from({ length: 20 }).map((_, i) => (
+              <div
+                key={i}
+                className="confetti-piece"
+                style={{
+                  left: `${10 + Math.random() * 80}%`,
+                  top: '-10px',
+                  backgroundColor: ['#fbbf24', '#ef4444', '#22c55e', '#3b82f6', '#a855f7', '#ec4899'][i % 6],
+                  '--fall-duration': `${2 + Math.random() * 2}s`,
+                  '--fall-delay': `${Math.random() * 0.5}s`,
+                } as React.CSSProperties}
+              />
+            ))}
+            <p className="text-5xl mb-4">🏆</p>
+            <p className="text-white font-bold text-2xl mb-2">Game Over!</p>
+            {(() => {
+              const sorted = [...room.players].sort((a, b) => (room.scores[b.id] || 0) - (room.scores[a.id] || 0))
+              const medals = ['🥇', '🥈', '🥉']
+              return (
+                <div className="space-y-2">
+                  {sorted.slice(0, 3).map((p, i) => (
+                    <div key={p.id} className="flex items-center justify-center gap-2 text-white">
+                      <span className="text-xl">{medals[i]}</span>
+                      <span className="font-bold">{p.username}</span>
+                      <span className="text-gray-300 tabular-nums">{room.scores[p.id] || 0}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
         </div>
       )}
     </div>

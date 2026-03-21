@@ -329,3 +329,128 @@ button[class*="hover:"]:hover {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.5);
 }
+
+/* ===== FLOATING EMOJI (Twitch-style vote floats) ===== */
+@keyframes floatUpEmoji {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  60% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-120px) scale(1.3); }
+}
+
+.animate-float-emoji {
+  animation: floatUpEmoji 1.5s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ===== SPEED BONUS FLOAT ===== */
+@keyframes speedBonusFloat {
+  0% { opacity: 1; transform: translateY(0) scale(0.8); }
+  20% { transform: translateY(-8px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(0.9); }
+}
+
+.animate-speed-bonus {
+  animation: speedBonusFloat 1.8s ease-out forwards;
+  pointer-events: none;
+}
+
+/* ===== PENCIL WIGGLE (drawer indicator) ===== */
+@keyframes pencilWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-12deg); }
+  75% { transform: rotate(12deg); }
+}
+
+.animate-pencil-wiggle {
+  animation: pencilWiggle 0.6s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ===== TYPEWRITER HINT ===== */
+@keyframes typewriterBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.typewriter-cursor::after {
+  content: '|';
+  animation: typewriterBlink 0.8s step-end infinite;
+  margin-left: 1px;
+}
+
+/* ===== CELEBRATION PULSE ===== */
+@keyframes celebrationPulse {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-celebration {
+  animation: celebrationPulse 0.6s ease-out both;
+}
+
+/* ===== STREAK FLAME ===== */
+@keyframes flameFlicker {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.1) rotate(-3deg); }
+  50% { transform: scale(0.95) rotate(2deg); }
+  75% { transform: scale(1.05) rotate(-2deg); }
+}
+
+.animate-flame {
+  animation: flameFlicker 0.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+/* ===== CONFETTI BURST ===== */
+@keyframes confettiFall {
+  0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  animation: confettiFall var(--fall-duration, 3s) ease-in forwards;
+  animation-delay: var(--fall-delay, 0s);
+}
+
+/* ===== ROUND RECAP OVERLAY ===== */
+@keyframes recapSlideIn {
+  0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-recap {
+  animation: recapSlideIn 0.4s ease-out both;
+}
+
+/* ===== TOOLTIP ===== */
+.tooltip-shortcut {
+  position: relative;
+}
+
+.tooltip-shortcut::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  font-size: 11px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+  z-index: 50;
+}
+
+.tooltip-shortcut:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
