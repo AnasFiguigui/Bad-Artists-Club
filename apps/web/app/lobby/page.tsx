@@ -290,7 +290,7 @@ export default function LobbyPage() {
             <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
 
             {/* Player list: max 5 visible, scrollable */}
-            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '320px' }}>
+            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '275px' }}>
               <div className="space-y-2.5">
                 {room.players.map((player) => (
                   <div
