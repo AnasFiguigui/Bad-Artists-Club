@@ -5,6 +5,7 @@
 /* Prevent overscroll/pull-to-refresh on mobile game page */
 body {
   overscroll-behavior: none;
+  background-color: #060010;
 }
 
 /* Modern slider styling */

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { initSocket, getSocket } from '@/lib/socket'
 import { gameStore } from '@/lib/store'
 import { Room, GameConfig } from '@/lib/types'
-import { Grainient } from '@/components/Grainient'
+import LiquidEther from '@/components/LiquidEther'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 import { THEME_CONFIGS } from '@/lib/themeConfig'
 
@@ -178,13 +178,10 @@ export default function LobbyPage() {
 
   return (
     <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-      <Grainient
-        color1="#2A2A35"
-        color2="#3D3548"
-        color3="#35353F"
-        color4="#2F3040"
-        color5="#40384A"
+      <LiquidEther
+        colors={['#5227FF', '#FF9FFC', '#B19EEF']}
         className="fixed inset-0 -z-10"
+        style={{ width: '100%', height: '100%' }}
       />
       <BackgroundDoodles />
       

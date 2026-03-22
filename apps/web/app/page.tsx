@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { gameStore } from '@/lib/store'
-import { Grainient } from '@/components/Grainient'
+import LiquidEther from '@/components/LiquidEther'
 import { HandDrawnBorder } from '@/components/HandDrawnBorder'
 import { BackgroundDoodles } from '@/components/BackgroundDoodles'
 
@@ -49,14 +49,11 @@ function HomeContent() {
 
   return (
     <main className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
-      {/* Background with gradient and noise */}
-      <Grainient
-        color1="#2A2A35"
-        color2="#3D3548"
-        color3="#35353F"
-        color4="#2F3040"
-        color5="#40384A"
+      {/* Background fluid simulation */}
+      <LiquidEther
+        colors={['#5227FF', '#FF9FFC', '#B19EEF']}
         className="fixed inset-0 -z-10"
+        style={{ width: '100%', height: '100%' }}
       />
       <BackgroundDoodles />
       
