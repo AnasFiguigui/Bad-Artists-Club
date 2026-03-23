@@ -729,7 +729,7 @@ export default function GamePage() {
 
   if (!room) {
     return (
-      <div className="h-screen bg-gray-950 flex items-center justify-center">
+      <div className="h-screen bg-[#060010] flex items-center justify-center">
         <div className="text-white text-2xl animate-pulse">Loading game...</div>
       </div>
     )

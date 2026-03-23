@@ -82,7 +82,7 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
       textMuted: '#a78bfa',
       gradient: 'linear-gradient(135deg, rgba(124, 58, 237, 0.4), rgba(91, 33, 182, 0.4))',
     },
-    referenceAspectRatio: '16/9',
+    referenceAspectRatio: '2/3',
   },
   anime: {
     name: 'Anime',

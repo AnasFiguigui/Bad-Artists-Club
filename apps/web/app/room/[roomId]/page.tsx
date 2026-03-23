@@ -297,9 +297,29 @@ export default function RoomPage() {
     }
   }
 
+  const handleEnterFreeDraw = () => {
+    if (!socket) return
+    socket.emit('enter-free-draw', { roomId }, (response: any) => {
+      if (!response.success) {
+        alert(response.error || 'Failed to enter free draw')
+      }
+    })
+  }
+
+  // Auto-ready when becoming host
+  const isHostNow = Boolean(room && socket && room.host === socket.id)
+  useEffect(() => {
+    if (isHostNow && socket && room) {
+      const me = room.players.find((p) => p.id === socket.id)
+      if (me && !me.ready) {
+        socket.emit('ready', { roomId }, () => {})
+      }
+    }
+  }, [isHostNow]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#060010] flex items-center justify-center">
         <div className="text-white text-2xl animate-pulse">Joining room...</div>
       </div>
     )
@@ -307,7 +327,7 @@ export default function RoomPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#060010] flex items-center justify-center">
         <div className="text-white text-2xl">Room not found</div>
       </div>
     )
@@ -317,6 +337,93 @@ export default function RoomPage() {
   const allReady = room.players.every((p) => p.ready)
   const themeLabels: Record<string, string> = { lol: 'League of Legends', 'elden-ring': 'Elden Ring', dbd: 'Dead by Daylight', 'game-titles': 'Game Titles', anime: 'Anime', custom: 'Custom', crossverse: 'Crossverse' }
   const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪', 'game-titles': '🎮', anime: '🌸', custom: '✏️', crossverse: '🌀' }
+
+  const MAX_PLAYERS = 20
+
+  // Shared: Player list with placeholders
+  const playerListJsx = (
+    <div className="space-y-2.5">
+      {room.players.map((player) => (
+        <div
+          key={player.id}
+          className="bg-white/8 hover:bg-white/12 border border-white/15 p-3.5 rounded-lg flex items-center justify-between transition-all duration-200 group"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white/80">
+              {player.username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <span className="text-white font-semibold text-sm block">
+                {player.username}
+                {player.id === socket?.id && <span className="text-xs text-blue-300 font-medium ml-1.5">(you)</span>}
+              </span>
+              {player.isHost && <span className="text-[10px] text-yellow-400/80 font-bold">👑 Host</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-bold px-2 py-1 rounded-full transition-colors ${
+              player.ready
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                : 'bg-white/5 text-gray-400 border border-white/10'
+            }`}>
+              {player.ready ? '✓ Ready' : 'Waiting'}
+            </span>
+            {isHost && player.id !== socket?.id && (
+              <button
+                onClick={() => {
+                  if (confirm(`Kick ${player.username}?`)) {
+                    socket?.emit('kick-player', { roomId, targetId: player.id }, () => {})
+                  }
+                }}
+                title={`Kick ${player.username}`}
+                className="p-1 rounded text-red-400/60 hover:text-red-300 hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+      {Array.from({ length: Math.max(0, MAX_PLAYERS - room.players.length) }).map((_, i) => (
+        <div
+          key={`empty-${i}`}
+          className="border border-dashed border-white/10 p-3.5 rounded-lg flex items-center gap-2.5"
+        >
+          <div className="w-8 h-8 rounded-full bg-white/5 border border-dashed border-white/10 flex items-center justify-center text-xs text-white/15">
+            ?
+          </div>
+          <span className="text-white/15 text-sm italic">Empty slot</span>
+        </div>
+      ))}
+    </div>
+  )
+
+  // Shared: Invite card
+  const inviteCardJsx = (
+    <div className="card-hand-drawn p-5 sm:p-6">
+      <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">🔗 Invite Friends</h2>
+      <div className="p-3 bg-purple-500/15 border border-purple-400/20 rounded-lg text-white/80 text-xs backdrop-blur-sm mb-4">
+        <p className="font-medium text-white/90 mb-0.5">💡 How to join:</p>
+        <p>Share your room ID or invite link. Friends can join anytime!</p>
+      </div>
+      <div className="space-y-2">
+        <button
+          onClick={handleCopyLink}
+          className="w-full bg-gradient-to-r from-blue-500/50 to-blue-600/40 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/40 text-blue-100 hover:text-blue-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+        >
+          {linkCopied ? '✓ Copied!' : '📋 Copy Invite Link'}
+        </button>
+        <button
+          onClick={handleCopyRoomId}
+          className="w-full bg-gradient-to-r from-cyan-500/25 to-cyan-600/25 hover:from-cyan-500/35 hover:to-cyan-600/45 border border-cyan-400/40 text-cyan-100 hover:text-cyan-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+        >
+          {roomIdCopied ? '✓ Copied!' : '🎮 Copy Room ID'}
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <main className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
@@ -338,149 +445,99 @@ export default function RoomPage() {
           </p>
         </div>
 
-        {/* Two-column layout */}
+        {/* Two-column layout - conditional based on host/player */}
         <div className="grid md:grid-cols-2 gap-5">
-          {/* LEFT COLUMN: Settings */}
-          <div>
-            {/* Settings Card */}
-            <div className="card-hand-drawn p-5 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
-              {isHost ? (
-                <SettingsForm room={room} onApply={handleUpdateSettings} />
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
-                    <span className="text-white/70 text-sm">Theme</span>
-                    <span className="text-white font-semibold text-sm">{themeEmojis[room.theme] || '🎮'} {themeLabels[room.theme] || room.theme}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
-                    <span className="text-white/70 text-sm">Rounds</span>
-                    <span className="text-white font-semibold text-sm">{room.totalRounds}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
-                    <span className="text-white/70 text-sm">Draw Time</span>
-                    <span className="text-white font-semibold text-sm">{room.drawTime}s</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
-                    <span className="text-white/70 text-sm">Hints</span>
-                    <span className={`font-semibold text-sm ${(room.hintsEnabled ?? true) ? 'text-emerald-400' : 'text-gray-500'}`}>
-                      {(room.hintsEnabled ?? true) ? '✓ Enabled' : '✗ Disabled'}
-                    </span>
-                  </div>
-                  <p className="text-white/40 text-xs italic pt-1">Only the host can change settings</p>
+          {isHost ? (
+            <>
+              {/* HOST: Left = Settings */}
+              <div className="flex flex-col">
+                <div className="card-hand-drawn p-5 sm:p-6 flex-1">
+                  <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
+                  <SettingsForm room={room} onApply={handleUpdateSettings} />
                 </div>
-              )}
-            </div>
-
-          </div>
-
-          {/* RIGHT COLUMN: Players + Invite */}
-          <div className="space-y-5">
-          <div className="card-hand-drawn p-5 sm:p-6 flex flex-col">
-            <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
-
-            {/* Player list */}
-            <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '320px' }}>
-              <div className="space-y-2.5">
-                {room.players.map((player) => (
-                  <div
-                    key={player.id}
-                    className="bg-white/8 hover:bg-white/12 border border-white/15 p-3.5 rounded-lg flex items-center justify-between transition-all duration-200 group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-sm font-bold text-white/80">
-                        {player.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <span className="text-white font-semibold text-sm block">
-                          {player.username}
-                          {player.id === socket?.id && <span className="text-xs text-blue-300 font-medium ml-1.5">(you)</span>}
-                        </span>
-                        {player.isHost && <span className="text-[10px] text-yellow-400/80 font-bold">👑 Host</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full transition-colors ${
-                        player.ready
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-white/5 text-gray-400 border border-white/10'
-                      }`}>
-                        {player.ready ? '✓ Ready' : 'Waiting'}
-                      </span>
-                      {isHost && player.id !== socket?.id && (
-                        <button
-                          onClick={() => {
-                            if (confirm(`Kick ${player.username}?`)) {
-                              socket?.emit('kick-player', { roomId, targetId: player.id }, () => {})
-                            }
-                          }}
-                          title={`Kick ${player.username}`}
-                          className="p-1 rounded text-red-400/60 hover:text-red-300 hover:bg-red-500/20 transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
               </div>
-            </div>
-
-            {/* Action buttons */}
-            <div className="space-y-2.5 mt-auto">
-              <button
-                onClick={handleReady}
-                className="w-full bg-gradient-to-r from-emerald-500/50 to-emerald-600/50 hover:from-emerald-500/60 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-              >
-                {room.players.find((p) => p.id === socket?.id)?.ready ? 'Change Mind' : '✓ Ready to Play'}
-              </button>
-
-              {isHost && allReady && room.players.length >= 2 && (
-                <button
-                  onClick={handleStartGame}
-                  className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-                >
-                  Launch Game
-                </button>
-              )}
-
-              {isHost && (!allReady || room.players.length < 2) && (
-                <p className="text-white/50 text-xs text-center font-medium italic">
-                  {room.players.length < 2 ? 'Waiting for 2+ players' : 'All players must be ready'}
-                </p>
-              )}
-
-              {!isHost && (
-                <p className="text-white/50 text-xs text-center font-medium italic">Waiting for host to start...</p>
-              )}
-            </div>
-          </div>
-
-          {/* Invite Card */}
-          <div className="card-hand-drawn p-5 sm:p-6">
-            <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">🔗 Invite Friends</h2>
-            <div className="p-3 bg-purple-500/15 border border-purple-400/20 rounded-lg text-white/80 text-xs backdrop-blur-sm mb-4">
-              <p className="font-medium text-white/90 mb-0.5">💡 How to join:</p>
-              <p>Share your room ID or invite link. Friends can join anytime!</p>
-            </div>
-            <div className="space-y-2">
-              <button
-                onClick={handleCopyLink}
-                className="w-full bg-gradient-to-r from-blue-500/50 to-blue-600/40 hover:from-blue-500/60 hover:to-blue-600/50 border border-blue-400/40 text-blue-100 hover:text-blue-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-              >
-                {linkCopied ? '✓ Copied!' : '📋 Copy Invite Link'}
-              </button>
-              <button
-                onClick={handleCopyRoomId}
-                className="w-full bg-gradient-to-r from-cyan-500/25 to-cyan-600/25 hover:from-cyan-500/35 hover:to-cyan-600/45 border border-cyan-400/40 text-cyan-100 hover:text-cyan-50 px-4 py-2.5 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-              >
-                {roomIdCopied ? '✓ Copied!' : '🎮 Copy Room ID'}
-              </button>
-            </div>
-          </div>
-          </div>
+              {/* HOST: Right = Players + Invite */}
+              <div className="flex flex-col gap-5">
+                <div className="card-hand-drawn p-5 sm:p-6 flex flex-col flex-1">
+                  <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
+                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '275px' }}>
+                    {playerListJsx}
+                  </div>
+                  <div className="space-y-2.5 mt-auto">
+                    <button
+                      onClick={handleEnterFreeDraw}
+                      className="w-full bg-gradient-to-r from-amber-500/50 to-amber-600/50 hover:from-amber-500/60 hover:to-amber-600/60 border border-amber-400/50 text-amber-100 hover:text-amber-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                    >
+                      🎨 Free Draw Mode
+                    </button>
+                    {allReady && room.players.length >= 2 && (
+                      <button
+                        onClick={handleStartGame}
+                        className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                      >
+                        Launch Game
+                      </button>
+                    )}
+                    {(!allReady || room.players.length < 2) && (
+                      <p className="text-white/50 text-xs text-center font-medium italic">
+                        {room.players.length < 2 ? 'Waiting for 2+ players' : 'All players must be ready'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {inviteCardJsx}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* NON-HOST: Left = Settings + Invite */}
+              <div className="flex flex-col gap-5">
+                <div className="card-hand-drawn p-5 sm:p-6 flex-1">
+                  <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
+                      <span className="text-white/70 text-sm">Theme</span>
+                      <span className="text-white font-semibold text-sm">{themeEmojis[room.theme] || '🎮'} {themeLabels[room.theme] || room.theme}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
+                      <span className="text-white/70 text-sm">Rounds</span>
+                      <span className="text-white font-semibold text-sm">{room.totalRounds}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
+                      <span className="text-white/70 text-sm">Draw Time</span>
+                      <span className="text-white font-semibold text-sm">{room.drawTime}s</span>
+                    </div>
+                    <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
+                      <span className="text-white/70 text-sm">Hints</span>
+                      <span className={`font-semibold text-sm ${(room.hintsEnabled ?? true) ? 'text-emerald-400' : 'text-gray-500'}`}>
+                        {(room.hintsEnabled ?? true) ? '✓ Enabled' : '✗ Disabled'}
+                      </span>
+                    </div>
+                    <p className="text-white/40 text-xs italic pt-1">Only the host can change settings</p>
+                  </div>
+                </div>
+                {inviteCardJsx}
+              </div>
+              {/* NON-HOST: Right = Players */}
+              <div className="flex flex-col">
+                <div className="card-hand-drawn p-5 sm:p-6 flex flex-col flex-1">
+                  <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
+                  <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide mb-5" style={{ maxHeight: '275px' }}>
+                    {playerListJsx}
+                  </div>
+                  <div className="space-y-2.5 mt-auto">
+                    <button
+                      onClick={handleReady}
+                      className="w-full bg-gradient-to-r from-emerald-500/50 to-emerald-600/50 hover:from-emerald-500/60 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                    >
+                      {room.players.find((p) => p.id === socket?.id)?.ready ? 'Change Mind' : '✓ Ready to Play'}
+                    </button>
+                    <p className="text-white/50 text-xs text-center font-medium italic">Waiting for host to start...</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </main>

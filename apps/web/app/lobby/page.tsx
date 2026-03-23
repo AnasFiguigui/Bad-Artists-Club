@@ -57,6 +57,8 @@ export default function LobbyPage() {
       if (currentPlayer) {
         gameStore.setState({ currentPlayer })
       }
+      // Auto-ready the host
+      socket.emit('ready', { roomId: createdRoom.id }, () => {})
     })
 
     socket.on('player-joined', (updatedRoom: Room) => {
@@ -166,7 +168,7 @@ export default function LobbyPage() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-[#060010] flex items-center justify-center">
         <div className="text-white text-2xl">Loading lobby...</div>
       </div>
     )
@@ -197,9 +199,9 @@ export default function LobbyPage() {
         {/* Two-column layout */}
         <div className="grid md:grid-cols-2 gap-5">
           {/* LEFT COLUMN: Settings */}
-          <div>
+          <div className="flex flex-col">
             {/* Settings Card */}
-            <div className="card-hand-drawn p-5 sm:p-6">
+            <div className="card-hand-drawn p-5 sm:p-6 flex-1">
               <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
 
               {/* Theme buttons */}
@@ -285,8 +287,8 @@ export default function LobbyPage() {
           </div>
 
           {/* RIGHT COLUMN: Players + Invite */}
-          <div className="space-y-5">
-          <div className="card-hand-drawn p-5 sm:p-6 flex flex-col">
+          <div className="flex flex-col gap-5">
+          <div className="card-hand-drawn p-5 sm:p-6 flex flex-col flex-1">
             <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-4">👥 Players ({room.players.length})</h2>
 
             {/* Player list: max 5 visible, scrollable */}
@@ -315,28 +317,30 @@ export default function LobbyPage() {
                     </span>
                   </div>
                 ))}
+                {Array.from({ length: Math.max(0, config.maxPlayers - room.players.length) }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="border border-dashed border-white/10 p-3.5 rounded-lg flex items-center gap-2.5"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-dashed border-white/10 flex items-center justify-center text-xs text-white/15">
+                      ?
+                    </div>
+                    <span className="text-white/15 text-sm italic">Empty slot</span>
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Action buttons */}
             <div className="space-y-2.5 mt-auto">
               <button
-                onClick={handleReady}
-                className="w-full bg-gradient-to-r from-emerald-500/50 to-emerald-600/50 hover:from-emerald-500/60 hover:to-emerald-600/40 border border-emerald-400/50 text-emerald-100 hover:text-emerald-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
+                onClick={handleEnterFreeDraw}
+                className="w-full bg-gradient-to-r from-amber-500/50 to-amber-600/50 hover:from-amber-500/60 hover:to-amber-600/60 border border-amber-400/50 text-amber-100 hover:text-amber-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
               >
-                ✓ Ready to Play
+                Free Draw Mode
               </button>
 
-              {isHost && room.players.length < 2 && (
-                <button
-                  onClick={handleEnterFreeDraw}
-                  className="w-full bg-gradient-to-r from-amber-500/50 to-amber-600/50 hover:from-amber-500/60 hover:to-amber-600/60 border border-amber-400/50 text-amber-100 hover:text-amber-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
-                >
-                  Free Draw Mode
-                </button>
-              )}
-
-              {isHost && allReady && room.players.length >= 2 && (
+              {allReady && room.players.length >= 2 && (
                 <button
                   onClick={handleStartGame}
                   className="w-full bg-gradient-to-r from-indigo-500/30 to-indigo-600/30 hover:from-indigo-500/40 hover:to-indigo-600/40 border border-indigo-400/50 text-indigo-100 hover:text-indigo-50 px-4 py-3 rounded-lg font-bold backdrop-blur-sm transition-all text-sm"
@@ -345,7 +349,7 @@ export default function LobbyPage() {
                 </button>
               )}
 
-              {isHost && (!allReady || room.players.length < 2) && (
+              {(!allReady || room.players.length < 2) && (
                 <p className="text-white/50 text-xs text-center font-medium italic">
                   {room.players.length < 2 ? 'Waiting for 2+ players' : 'All players must be ready'}
                 </p>
