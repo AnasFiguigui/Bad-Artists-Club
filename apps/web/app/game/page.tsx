@@ -225,6 +225,7 @@ export default function GamePage() {
   const [isSpectator, setIsSpectator] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [rerollLocked, setRerollLocked] = useState(false)
+  const [rerollsRemaining, setRerollsRemaining] = useState(0)
   const speedBonusIdRef = useRef(0)
   const floatingEmojiIdRef = useRef(0)
   const rerollLockTimerRef = useRef<NodeJS.Timeout | null>(null)
@@ -289,6 +290,9 @@ export default function GamePage() {
       setShowRecap(false)
       setRecapData(null)
       setRerollLocked(false)
+      // Set reroll budget based on theme
+      const maxRerolls = updatedRoom.theme === 'crossverse' ? 2 : updatedRoom.theme === 'custom' ? 0 : 1
+      setRerollsRemaining(maxRerolls)
       
       // Lock reroll after 20 seconds
       if (rerollLockTimerRef.current) clearTimeout(rerollLockTimerRef.current)
@@ -663,6 +667,11 @@ export default function GamePage() {
   }, [canDraw, handleUndo])
 
   const handleReroll = () => {
+    if (rerollsRemaining <= 0) {
+      setNotification('No rerolls remaining')
+      setTimeout(() => setNotification(null), 2000)
+      return
+    }
     if (rerollLocked) {
       setNotification('Reroll is locked after 20 seconds')
       setTimeout(() => setNotification(null), 2000)
@@ -670,9 +679,10 @@ export default function GamePage() {
     }
     
     if (socket && roomId) {
-      socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string; error?: string }) => {
+      socket.emit('reroll', { roomId }, (response: { success: boolean; answer?: string; hint?: string; error?: string; sourceTheme?: string }) => {
         if (response.success && response.answer && response.hint) {
-          setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint } : prev)
+          setRoom((prev) => prev ? { ...prev, answer: response.answer, hint: response.hint, sourceTheme: response.sourceTheme } : prev)
+          setRerollsRemaining((prev) => Math.max(0, prev - 1))
           canvasRef.current?.clear()
           socket.emit('clear-canvas', { roomId })
         } else if (!response.success) {
@@ -893,13 +903,14 @@ export default function GamePage() {
             <div className="shrink-0 border-t border-gray-700/50 p-2 space-y-2">
               {/* Reference image (hidden for custom theme) */}
               {showReference && room.theme !== 'custom' && (
-                <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
+                <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: room.theme === 'crossverse' && room.sourceTheme ? getThemeConfig(room.sourceTheme).referenceAspectRatio : themeConfig.referenceAspectRatio }}>
                   {(() => {
                     const imgUrl = room.answer ? getReferenceImageUrl(room.theme, room.answer, room.sourceTheme) : null
                     return imgUrl ? (
                       <img
                         src={imgUrl}
                         alt="Reference"
+                        loading="lazy"
                         className={`w-full h-full object-contain${room.theme === 'anime' || room.sourceTheme === 'anime' ? ' manga-img' : ''}`}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none'
@@ -921,10 +932,10 @@ export default function GamePage() {
               {room.theme !== 'custom' && (
                   <button
                     onClick={handleReroll}
-                    disabled={rerollLocked}
-                    title={rerollLocked ? 'Reroll locked after 20s' : "Reroll word"}
+                    disabled={rerollsRemaining <= 0 || rerollLocked}
+                    title={rerollsRemaining <= 0 ? 'No rerolls left' : rerollLocked ? 'Reroll locked after 20s' : 'Reroll word'}
                     className={`flex-1 flex items-center justify-center gap-1 p-1.5 rounded-lg transition-colors text-[10px] font-medium ${
-                      rerollLocked
+                      rerollsRemaining <= 0 || rerollLocked
                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed opacity-50'
                         : 'bg-gray-800 text-blue-400 hover:bg-blue-900/50 hover:text-blue-300'
                     }`}
@@ -932,7 +943,7 @@ export default function GamePage() {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {rerollLocked ? 'Locked' : 'Reroll'}
+                    {rerollsRemaining <= 0 ? 'No Rerolls' : rerollLocked ? 'Locked' : `Reroll (${rerollsRemaining})`}
                   </button>
                 )}
                 <button

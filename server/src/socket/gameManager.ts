@@ -52,6 +52,10 @@ export class GameManager {
   private readonly playerStreaks: Map<string, Map<string, number>> = new Map()
   // Per-room hint reveal tracking: which positions are revealed (for spacing out reveals)
   private readonly revealedHintPositions: Map<string, Set<number>> = new Map()
+  // Per-room reroll budget for the current turn
+  private readonly roomRerolls: Map<string, number> = new Map()
+  // O(1) socket-to-room lookup (avoids iterating all rooms on disconnect)
+  private readonly socketToRoom: Map<string, string> = new Map()
   private static readonly MAX_ROOM_DRAWS_PER_SECOND = 120
 
   constructor(io: Server, roomManager: RoomManager) {
@@ -64,6 +68,25 @@ export class GameManager {
   private sanitizeRoom(room: Room): Room {
     const { answer, ...safe } = room
     return safe as Room
+  }
+
+  /** Clean up all game-related state for a room (timers, strokes, tracking Maps) */
+  private cleanupGameState(roomId: string): void {
+    const timer = this.timers.get(roomId)
+    if (timer) clearInterval(timer)
+    this.timers.delete(roomId)
+    this.roundStartTimes.delete(roomId)
+    this.canvasStrokes.delete(roomId)
+    this.cooldownRooms.delete(roomId)
+    this.roomDrawCounts.delete(roomId)
+    const cwTimer = this.customWordTimers.get(roomId)
+    if (cwTimer) clearInterval(cwTimer)
+    this.customWordTimers.delete(roomId)
+    this.altAnswers.delete(roomId)
+    this.roomReactions.delete(roomId)
+    this.playerStreaks.delete(roomId)
+    this.revealedHintPositions.delete(roomId)
+    this.roomRerolls.delete(roomId)
   }
 
   private loadCharacterData(): void {
@@ -202,6 +225,7 @@ export class GameManager {
 
     const room = this.roomManager.createRoom(socket.id, username, data.config)
     socket.join(room.id)
+    this.socketToRoom.set(socket.id, room.id)
     console.log(`[Room] Created room ${room.id} by ${username} (${socket.id})`)
     this.io.to(room.id).emit('room-created', room)
     return room.id
@@ -220,6 +244,7 @@ export class GameManager {
     console.log(`[Room] Player ${validatedUsername} (${socket.id}) joining room ${roomId}`)
     const updatedRoom = this.roomManager.addPlayer(roomId, socket.id, validatedUsername)
     socket.join(roomId)
+    this.socketToRoom.set(socket.id, roomId)
     console.log(`[Room] Room ${roomId} now has ${updatedRoom.players.length} players, state: ${updatedRoom.state}`)
 
     // Notify OTHER players that someone joined
@@ -325,6 +350,10 @@ export class GameManager {
 
     // Reset reactions for new turn
     this.roomReactions.set(roomId, { likes: 0, dislikes: 0, voted: new Map() })
+
+    // Set reroll budget for this turn: crossverse=2, custom=0, others=1
+    const maxRerolls = room.theme === 'crossverse' ? 2 : room.theme === 'custom' ? 0 : 1
+    this.roomRerolls.set(roomId, maxRerolls)
 
     // Custom theme: drawer chooses a word
     if (room.theme === 'custom') {
@@ -592,8 +621,9 @@ export class GameManager {
     const revealedCount = this.revealedHintPositions.get(roomId)?.size || 0
     // Scoring: 200 base, -2pts/sec time penalty, -10pts per revealed hint letter
     // 0s: 200, 10s: 180, 30s: 140, 60s: 80, with hints: -10 each
-    // Minimum: 50 pts
-    const points = Math.max(200 - (elapsedSeconds * 2) - (revealedCount * 10), 50)
+    // Minimum: 50 pts, plus position bonus for early guessers
+    const positionBonus = position === 1 ? 25 : position === 2 ? 15 : position === 3 ? 5 : 0
+    const points = Math.max(200 - (elapsedSeconds * 2) - (revealedCount * 10), 50) + positionBonus
 
     this.roomManager.updateScore(roomId, socket.id, points)
     if (room.drawer) {
@@ -710,16 +740,16 @@ export class GameManager {
   }
 
   handleLeaveRoom(socket: Socket): void {
-    const rooms = this.roomManager.getAllRooms()
-    for (const room of rooms) {
-      const player = room.players.find((p: { id: string }) => p.id === socket.id)
-      if (player) {
-        socket.leave(room.id)
-        this.roomManager.removePlayer(room.id, socket.id)
-        this.cleanupAfterLeave(room, socket.id)
-        break
-      }
-    }
+    const roomId = this.socketToRoom.get(socket.id)
+    if (!roomId) return
+    this.socketToRoom.delete(socket.id)
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) return
+    const player = room.players.find((p: { id: string }) => p.id === socket.id)
+    if (!player) return
+    socket.leave(roomId)
+    this.roomManager.removePlayer(roomId, socket.id)
+    this.cleanupAfterLeave(room, socket.id)
   }
 
   handleDisconnect(socket: Socket): void {
@@ -734,18 +764,8 @@ export class GameManager {
 
     console.log(`[Game] Restarting game in room ${roomId}`)
 
-    // Clear any running timers
-    const timer = this.timers.get(roomId)
-    if (timer) clearInterval(timer)
-    this.timers.delete(roomId)
-    this.roundStartTimes.delete(roomId)
-    this.canvasStrokes.delete(roomId)
-    this.cooldownRooms.delete(roomId)
-    this.roomDrawCounts.delete(roomId)
-    this.altAnswers.delete(roomId)
-    const cwTimer = this.customWordTimers.get(roomId)
-    if (cwTimer) clearInterval(cwTimer)
-    this.customWordTimers.delete(roomId)
+    // Clean up all game state
+    this.cleanupGameState(roomId)
 
     this.roomManager.resetGameForRestart(roomId)
 
@@ -766,15 +786,8 @@ export class GameManager {
 
     console.log(`[Game] Host ending game early in room ${roomId}`)
 
-    // Clear any running timers
-    const timer = this.timers.get(roomId)
-    if (timer) clearInterval(timer)
-    this.timers.delete(roomId)
-    this.roundStartTimes.delete(roomId)
-    this.cooldownRooms.delete(roomId)
-    const cwTimer2 = this.customWordTimers.get(roomId)
-    if (cwTimer2) clearInterval(cwTimer2)
-    this.customWordTimers.delete(roomId)
+    // Clean up all game state
+    this.cleanupGameState(roomId)
 
     this.roomManager.updateRoomState(roomId, 'results')
     this.roomManager.syncPlayerScores(roomId)
@@ -782,17 +795,25 @@ export class GameManager {
     this.io.to(roomId).emit('game-ended', finalRoom)
   }
 
-  handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string; error?: string } {
+  handleReroll(socket: Socket, roomId: string): { success: boolean; answer?: string; hint?: string; error?: string; sourceTheme?: string } {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')
     if (room.drawer !== socket.id) throw new Error('Only the drawer can reroll')
     if (room.theme === 'custom') throw new Error('Cannot reroll in custom mode')
+
+    // Check reroll budget
+    const remaining = this.roomRerolls.get(roomId) ?? 0
+    if (remaining <= 0) {
+      return { success: false, error: 'No rerolls remaining' }
+    }
 
     // Only allow reroll in the first 20 seconds of the round
     const roundStart = this.roundStartTimes.get(roomId)
     if (roundStart && (Date.now() - roundStart) > 20000) {
       return { success: false, error: 'Reroll is locked after 20 seconds' }
     }
+
+    this.roomRerolls.set(roomId, remaining - 1)
 
     const character = this.selectRandomCharacter(room.theme)
     const hint = this.generateHint(character.name)
@@ -809,11 +830,20 @@ export class GameManager {
     // Reset round start time so scoring and hints restart from now
     this.roundStartTimes.set(roomId, Date.now())
 
+    // Update sourceTheme for crossverse image lookup
+    if (character.sourceTheme) {
+      const r = this.roomManager.getRoom(roomId)
+      if (r) (r as any).sourceTheme = character.sourceTheme
+    } else {
+      const r = this.roomManager.getRoom(roomId)
+      if (r) delete (r as any).sourceTheme
+    }
+
     console.log(`[Game] Reroll in ${roomId}: new character "${character.name}"`)
 
     // Send new hint to all guessers
     this.io.to(roomId).except(socket.id).emit('reroll', { hint })
-    return { success: true, answer: character.name, hint }
+    return { success: true, answer: character.name, hint, sourceTheme: character.sourceTheme }
   }
 
   handleSubmitCustomWord(socket: Socket, roomId: string, word: string): { success: boolean; error?: string } {
@@ -1003,20 +1033,7 @@ export class GameManager {
     const updatedRoom = this.roomManager.getRoom(room.id)
 
     if (!updatedRoom || updatedRoom.players.length === 0) {
-      const timer = this.timers.get(room.id)
-      if (timer) clearInterval(timer)
-      this.timers.delete(room.id)
-      this.roundStartTimes.delete(room.id)
-      this.canvasStrokes.delete(room.id)
-      this.cooldownRooms.delete(room.id)
-      this.roomDrawCounts.delete(room.id)
-      const cwTimer = this.customWordTimers.get(room.id)
-      if (cwTimer) clearInterval(cwTimer)
-      this.customWordTimers.delete(room.id)
-      this.altAnswers.delete(room.id)
-      this.roomReactions.delete(room.id)
-      this.playerStreaks.delete(room.id)
-      this.revealedHintPositions.delete(room.id)
+      this.cleanupGameState(room.id)
       this.roomManager.deleteRoom(room.id)
       console.log(`[Room] Deleted empty room ${room.id}`)
       return
@@ -1036,14 +1053,7 @@ export class GameManager {
     // If only 1 player left during a game, end the game
     if (updatedRoom.players.length < 2 && updatedRoom.state === 'playing') {
       console.log(`[Game] Only 1 player left in room ${room.id}, ending game`)
-      const timer = this.timers.get(room.id)
-      if (timer) clearInterval(timer)
-      this.timers.delete(room.id)
-      this.roundStartTimes.delete(room.id)
-      this.cooldownRooms.delete(room.id)
-      const cwTimer = this.customWordTimers.get(room.id)
-      if (cwTimer) clearInterval(cwTimer)
-      this.customWordTimers.delete(room.id)
+      this.cleanupGameState(room.id)
 
       this.roomManager.updateRoomState(room.id, 'results')
       this.roomManager.syncPlayerScores(room.id)
@@ -1108,11 +1118,7 @@ export class GameManager {
     // Check if game needs to end (not enough active players)
     const activePlayers = room.players.filter((p: { isSpectator?: boolean }) => !p.isSpectator)
     if (activePlayers.length < 2 && room.state === 'playing') {
-      const timer = this.timers.get(roomId)
-      if (timer) clearInterval(timer)
-      this.timers.delete(roomId)
-      this.roundStartTimes.delete(roomId)
-      this.cooldownRooms.delete(roomId)
+      this.cleanupGameState(roomId)
       this.roomManager.updateRoomState(roomId, 'results')
       this.roomManager.syncPlayerScores(roomId)
       const finalRoom = this.roomManager.getRoom(roomId)!

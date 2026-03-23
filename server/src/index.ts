@@ -29,15 +29,27 @@ const io = new Server(httpServer, {
 app.use(cors({
   origin: process.env.FRONTEND_URL || /^http:\/\/localhost:\d+$/,
 }))
-app.use(express.json())
+app.use(express.json({ limit: '1kb' }))
 
-// Serve static files (character images) with path traversal protection
+// Security headers
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('X-XSS-Protection', '0')
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  }
+  next()
+})
+
+// Serve static files (character images) with path traversal protection and cache
 app.use('/images', (req, res, next) => {
   if (req.path.includes('..')) {
     return res.status(400).json({ error: 'Invalid path' })
   }
   next()
-}, express.static(path.join(__dirname, '..', 'public', 'images')))
+}, express.static(path.join(__dirname, '..', 'public', 'images'), { maxAge: '7d' }))
 
 const roomManager = new RoomManager()
 const gameManager = new GameManager(io, roomManager)
@@ -92,9 +104,11 @@ io.on('connection', (socket: Socket) => {
   console.log(`User connected: ${socket.id}`)
 
   socket.on('join-room', (data: { roomId: string; username: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'join-room', 5, 10000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       const room = gameManager.handleJoinRoom(socket, data.roomId, data.username)
       callback({ success: true, room })
@@ -104,6 +118,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('create-room', (data, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'create-room', 3, 10000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
@@ -163,9 +178,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('chat-message', (data: { roomId: string; message: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'chat-message', 2, 2000)) {
       return callback({ success: false, error: 'Sending too fast' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       const result = gameManager.handleChatMessage(socket, data.roomId, data.message)
       callback(result)
@@ -184,9 +201,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('restart-game', (data: { roomId: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'restart-game', 2, 10000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       gameManager.handleRestartGame(socket, data.roomId)
       callback({ success: true })
@@ -196,9 +215,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('end-game', (data: { roomId: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'end-game', 2, 10000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       gameManager.handleEndGame(socket, data.roomId)
       callback({ success: true })
@@ -208,9 +229,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('reroll', (data: { roomId: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'reroll', 3, 20000)) {
       return callback({ success: false, error: 'Too many rerolls' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       const result = gameManager.handleReroll(socket, data.roomId)
       callback(result)
@@ -233,9 +256,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('skip-turn', (data: { roomId: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'skip-turn', 2, 5000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       gameManager.handleSkipTurn(socket, data.roomId)
       callback({ success: true })
@@ -245,9 +270,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('kick-player', (data: { roomId: string; targetId: string }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'kick-player', 3, 10000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       gameManager.handleKickPlayer(socket, data.roomId, data.targetId)
       callback({ success: true })
@@ -257,9 +284,11 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('update-settings', (data: { roomId: string; settings: { theme?: string; rounds?: number; drawTime?: number; maxPlayers?: number } }, callback) => {
+    if (typeof callback !== 'function') return
     if (!rateLimit(socket.id, 'update-settings', 5, 5000)) {
       return callback({ success: false, error: 'Too many requests' })
     }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, error: 'Invalid room' })
     try {
       gameManager.handleUpdateSettings(socket, data.roomId, data.settings)
       callback({ success: true })

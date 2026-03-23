@@ -93,7 +93,7 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
     name: 'Anime',
     description: 'Black ink, white pages — draw your favorite anime characters manga-style.',
     colors: {
-      primary: '#ffffff',
+      primary: '#555555',
       primaryLight: '#e0e0e0',
       primaryDark: '#cccccc',
       secondary: '#aaaaaa',

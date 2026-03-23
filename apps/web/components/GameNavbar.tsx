@@ -99,7 +99,7 @@ export function GameNavbar(props: Readonly<GameNavbarProps>) {
         <button onClick={() => router.push('/')} className="w-10 h-10 sm:w-9 sm:h-9 flex-shrink-0 hover:opacity-80 transition-opacity" title="Home">
           <img src="/images/logo-bac-txt-white.svg" alt="Bad Artists Club" className="w-full h-full object-contain" />
         </button>
-        <div className="text-xs hidden md:block font-medium text-white">
+        <div className="bold text-xs hidden md:block font-medium text-white">
           {themeName || 'Bad Artists Club'}
         </div>
       </div>

@@ -88,6 +88,10 @@ export default function LiquidEther({
   const isVisibleRef = useRef<boolean>(true);
   const resizeRafRef = useRef<number | null>(null);
 
+  // Stable key for colors to avoid destroying/recreating WebGL on every parent re-render
+  // (inline arrays like colors={['#a','#b']} create new references each render)
+  const colorsKey = colors.join(',');
+
   useEffect(() => {
     if (!mountRef.current) return;
 
@@ -1185,7 +1189,7 @@ export default function LiquidEther({
     mouseForce,
     resolution,
     viscous,
-    colors,
+    colorsKey,
     autoDemo,
     autoSpeed,
     autoIntensity,

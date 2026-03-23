@@ -69,14 +69,14 @@ body {
   filter: grayscale(0%);
 }
 
-/* Manga-themed page overrides: dark bg, bright white outlines & text */
+/* Manga-themed page overrides: dark bg, gray outlines, dark gray buttons */
 .manga-theme {
   --manga-bg: #0a0a0a;
   --manga-panel: #111111;
   --manga-text: #f0f0f0;
-  --manga-border: rgba(255, 255, 255, 0.5);
+  --manga-border: rgba(160, 160, 160, 0.35);
   --manga-muted: #aaa;
-  --manga-accent: #ffffff;
+  --manga-accent: #cccccc;
 }
 
 /* Backgrounds stay dark, pushed darker for contrast */
@@ -107,9 +107,16 @@ body {
 .manga-theme .backdrop-blur-xl { background-color: rgba(17, 17, 17, 0.95) !important; }
 .manga-theme .border-white\/20 { border-color: var(--manga-border) !important; }
 
-/* Input fields — dark bg, white text, white border */
-.manga-theme input { background-color: #1a1a1a !important; color: #e7e7e7 !important; border-color: rgba(255,255,255,0.4) !important; }
+/* Input fields — dark bg, light text, gray border */
+.manga-theme input { background-color: #1a1a1a !important; color: #e7e7e7 !important; border-color: rgba(160,160,160,0.3) !important; }
 .manga-theme input::placeholder { color: #777 !important; }
+
+/* Buttons — dark gray with gray borders */
+.manga-theme .bg-emerald-600,
+.manga-theme .bg-emerald-700 { background-color: #2a2a2a !important; }
+.manga-theme .hover\:bg-emerald-700:hover { background-color: #333 !important; }
+.manga-theme [class*="bg-gradient"] { background-image: none !important; background-color: #222 !important; }
+.manga-theme [class*="bg-gradient"]:hover { background-color: #2a2a2a !important; }
 
 /* Progress bar track */
 .manga-theme .bg-gray-800.rounded-full { background-color: #222 !important; }
