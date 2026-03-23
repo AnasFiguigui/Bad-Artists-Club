@@ -10,6 +10,11 @@ import { GameManager } from './socket/gameManager'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Validate required env vars in production
+if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
+  throw new Error('FRONTEND_URL environment variable is required in production')
+}
+
 const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
@@ -18,7 +23,7 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
   },
   transports: ['websocket', 'polling'],
-  perMessageDeflate: true,
+  perMessageDeflate: process.env.NODE_ENV !== 'production',
 })
 
 app.use(cors({
@@ -26,8 +31,13 @@ app.use(cors({
 }))
 app.use(express.json())
 
-// Serve static files (character images)
-app.use('/images', express.static(path.join(__dirname, '..', 'public', 'images')))
+// Serve static files (character images) with path traversal protection
+app.use('/images', (req, res, next) => {
+  if (req.path.includes('..')) {
+    return res.status(400).json({ error: 'Invalid path' })
+  }
+  next()
+}, express.static(path.join(__dirname, '..', 'public', 'images')))
 
 const roomManager = new RoomManager()
 const gameManager = new GameManager(io, roomManager)
@@ -153,7 +163,7 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('chat-message', (data: { roomId: string; message: string }, callback) => {
-    if (!rateLimit(socket.id, 'chat-message', 3, 2000)) {
+    if (!rateLimit(socket.id, 'chat-message', 2, 2000)) {
       return callback({ success: false, error: 'Sending too fast' })
     }
     try {

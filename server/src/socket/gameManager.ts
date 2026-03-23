@@ -9,6 +9,7 @@ interface CharacterData {
   name: string
   hintLength: number
   altName?: string
+  sourceTheme?: string
 }
 
 function levenshteinDistance(a: string, b: string): number {
@@ -94,10 +95,12 @@ export class GameManager {
 
   private selectRandomCharacter(theme: string): CharacterData {
     if (theme === 'crossverse') {
-      // Pool from all non-custom themes
+      // Pool from all non-custom themes, tagging each with its source theme
       const allChars: CharacterData[] = []
       for (const [key, chars] of this.characterData.entries()) {
-        allChars.push(...chars)
+        for (const c of chars) {
+          allChars.push({ ...c, sourceTheme: key })
+        }
       }
       if (allChars.length === 0) return { name: 'Unknown', hintLength: 7 }
       return allChars[Math.floor(Math.random() * allChars.length)]
@@ -367,6 +370,14 @@ export class GameManager {
     console.log(`[Game] Character: "${character.name}", hint: "${hint}"`)
 
     this.roomManager.setAnswer(roomId, character.name, hint)
+    // Store source theme for crossverse image lookup
+    if (character.sourceTheme) {
+      const r = this.roomManager.getRoom(roomId)
+      if (r) (r as any).sourceTheme = character.sourceTheme
+    } else {
+      const r = this.roomManager.getRoom(roomId)
+      if (r) delete (r as any).sourceTheme
+    }
     // Store alt answer if available
     if (character.altName) {
       this.altAnswers.set(roomId, character.altName)
@@ -1000,6 +1011,13 @@ export class GameManager {
       this.canvasStrokes.delete(room.id)
       this.cooldownRooms.delete(room.id)
       this.roomDrawCounts.delete(room.id)
+      const cwTimer = this.customWordTimers.get(room.id)
+      if (cwTimer) clearInterval(cwTimer)
+      this.customWordTimers.delete(room.id)
+      this.altAnswers.delete(room.id)
+      this.roomReactions.delete(room.id)
+      this.playerStreaks.delete(room.id)
+      this.revealedHintPositions.delete(room.id)
       this.roomManager.deleteRoom(room.id)
       console.log(`[Room] Deleted empty room ${room.id}`)
       return

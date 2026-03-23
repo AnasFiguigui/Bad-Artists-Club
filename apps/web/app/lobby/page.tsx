@@ -18,13 +18,13 @@ const DEFAULT_CONFIG: GameConfig = {
 }
 
 const THEMES = [
-  { key: 'lol', label: 'League of Legends', emoji: '⚔️' },
-  { key: 'elden-ring', label: 'Elden Ring', emoji: '🗡️' },
-  { key: 'dbd', label: 'Dead by Daylight', emoji: '🔪' },
-  { key: 'game-titles', label: 'Game Titles', emoji: '🎮' },
-  { key: 'anime', label: 'Anime', emoji: '🌸' },
-  { key: 'crossverse', label: 'Crossverse', emoji: '🌀' },
-  { key: 'custom', label: 'Custom', emoji: '✏️' },
+  { key: 'lol', label: 'League of Legends' },
+  { key: 'elden-ring', label: 'Elden Ring' },
+  { key: 'dbd', label: 'Dead by Daylight' },
+  { key: 'game-titles', label: 'Game Titles' },
+  { key: 'anime', label: 'Anime' },
+  { key: 'crossverse', label: 'Crossverse' },
+  { key: 'custom', label: 'Custom' },
 ] as const
 
 const ROUND_OPTIONS = [3, 5, 8, 10] as const
@@ -204,24 +204,38 @@ export default function LobbyPage() {
             <div className="card-hand-drawn p-5 sm:p-6 flex-1">
               <h2 className="text-xl sm:text-2xl font-caveat font-bold text-white mb-5">⚙️ Settings</h2>
 
-              {/* Theme buttons */}
+              {/* Theme cards with thumbnails */}
               <div className="mb-5">
                 <label className="block text-white/70 text-xs font-medium uppercase tracking-wider mb-2">Theme</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.key}
-                      onClick={() => handleUpdateConfig({ theme: t.key as GameConfig['theme'] })}
-                      className={`px-3 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 border ${
-                        config.theme === t.key
-                          ? 'bg-white/20 border-white/40 text-white shadow-lg scale-[1.02]'
-                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:border-white/20 hover:text-white/80'
-                      }`}
-                    >
-                      <span className="text-base block mb-0.5">{t.emoji}</span>
-                      <span className="leading-tight block">{t.label}</span>
-                    </button>
-                  ))}
+                <p className="text-white/50 text-xs mb-3 italic min-h-[2rem]">{themeConfig.description}</p>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {THEMES.map((t) => {
+                    const tc = THEME_CONFIGS[t.key]
+                    return (
+                      <button
+                        key={t.key}
+                        onClick={() => handleUpdateConfig({ theme: t.key as GameConfig['theme'] })}
+                        className={`rounded-lg overflow-hidden transition-all duration-200 border group ${
+                          config.theme === t.key
+                            ? 'border-white/50 shadow-lg scale-[1.02] ring-1 ring-white/30'
+                            : 'border-white/10 hover:border-white/25 hover:scale-[1.01]'
+                        }`}
+                      >
+                        <div className="aspect-[3/2] w-full overflow-hidden bg-white/5">
+                          <img
+                            src={tc?.thumbnail || ''}
+                            alt={t.label}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        </div>
+                        <div className={`px-2 py-1.5 text-[10px] font-bold text-center transition-colors ${
+                          config.theme === t.key ? 'bg-white/15 text-white' : 'bg-white/5 text-white/60'
+                        }`}>
+                          {t.label}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

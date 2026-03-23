@@ -13,6 +13,37 @@ import { BrushControls } from '@/components/BrushControls'
 import { getThemeConfig } from '@/lib/themeConfig'
 import { playCorrectGuess, playTimerTick, playRoundStart, playGameEnd, playVote, playPlayerJoined } from '@/lib/sounds'
 
+/** Map theme key to the image folder name on the server */
+const THEME_IMAGE_FOLDERS: Record<string, string> = {
+  lol: 'lol',
+  dbd: 'dbd',
+  'game-titles': 'games',
+  anime: 'animes',
+  // elden-ring has no image folder
+}
+
+/** Build the reference image URL for a given theme + answer */
+function getReferenceImageUrl(theme: string, answer: string, sourceTheme?: string): string | null {
+  // crossverse: use the source theme's folder
+  const effectiveTheme = theme === 'crossverse' ? (sourceTheme || '') : theme
+  const folder = THEME_IMAGE_FOLDERS[effectiveTheme]
+  if (!folder) return null
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+
+  // game-titles uses lowercase + underscores: "Resident Evil" → "resident_evil"
+  if (effectiveTheme === 'game-titles') {
+    const filename = answer.toLowerCase().replace(/ /g, '_')
+    return `${baseUrl}/images/${folder}/${filename}.webp`
+  }
+  // dbd uses underscores: "Ghost face" → "Ghost_face"
+  if (effectiveTheme === 'dbd') {
+    return `${baseUrl}/images/${folder}/${answer.replaceAll(' ', '_')}.webp`
+  }
+  // lol and anime: use encodeURIComponent (preserves spaces, special chars in filename)
+  return `${baseUrl}/images/${folder}/${encodeURIComponent(answer)}.webp`
+}
+
 function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, onEndGame }: Readonly<{
   room: Room
   gameEnded: boolean
@@ -56,13 +87,13 @@ function SettingsModalContent({ room, gameEnded, themeColor, onClose, onApply, o
           <span className="text-xs text-gray-300 block mb-1">Theme</span>
           <div className="flex flex-wrap gap-1.5">
             {[
-              { value: 'lol', label: '⚔️ LoL' },
-              { value: 'elden-ring', label: '🗡️ Elden Ring' },
-              { value: 'dbd', label: '🔪 DbD' },
-              { value: 'game-titles', label: '🎮 Games' },
-              { value: 'anime', label: '🌸 Anime' },
-              { value: 'crossverse', label: '🌀 Crossverse' },
-              { value: 'custom', label: '✏️ Custom' },
+              { value: 'lol', label: 'LoL' },
+              { value: 'elden-ring', label: 'Elden Ring' },
+              { value: 'dbd', label: 'DbD' },
+              { value: 'game-titles', label: 'Games' },
+              { value: 'anime', label: 'Anime' },
+              { value: 'crossverse', label: 'Crossverse' },
+              { value: 'custom', label: 'Custom' },
             ].map((t) => (
               <button
                 key={t.value}
@@ -739,15 +770,16 @@ export default function GamePage() {
   const playerCount = room.players.length
   const themeConfig = getThemeConfig(room.theme)
   const themeColors = themeConfig.colors
+  const isManga = room.theme === 'anime'
 
   const getTimerColor = () => {
-    if (timeRemaining > room.drawTime * 0.5) return themeColors.primary
+    if (timeRemaining > room.drawTime * 0.5) return isManga ? '#111' : themeColors.primary
     if (timeRemaining > room.drawTime * 0.25) return '#eab308'
     return '#ef4444'
   }
 
   return (
-    <div className="h-screen bg-gray-950 flex flex-col overflow-hidden" style={{ '--theme-primary': themeColors.primary, '--theme-border': themeColors.border, '--theme-bg': themeColors.bg } as React.CSSProperties}>
+    <div className={`h-screen bg-gray-950 flex flex-col overflow-hidden${isManga ? ' manga-theme' : ''}`} style={{ '--theme-primary': themeColors.primary, '--theme-border': themeColors.border, '--theme-bg': themeColors.bg } as React.CSSProperties}>
       {/* Navbar */}
       <GameNavbar
         roomId={roomId || ''}
@@ -862,18 +894,21 @@ export default function GamePage() {
               {/* Reference image (hidden for custom theme) */}
               {showReference && room.theme !== 'custom' && (
                 <div className="w-full bg-gray-800 border border-gray-700/50 rounded-lg flex items-center justify-center overflow-hidden" style={{ aspectRatio: themeConfig.referenceAspectRatio }}>
-                  {(room.theme === 'dbd' || room.theme === 'lol') && room.answer ? (
-                    <img
-                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/images/${room.theme}/${room.theme === 'dbd' ? room.answer.replaceAll(' ', '_') : encodeURIComponent(room.answer)}.webp`}
-                      alt="Reference"
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                      }}
-                    />
-                  ) : null}
-                  <div className={`text-center text-gray-500 p-2 ${(room.theme === 'dbd' || room.theme === 'lol') && room.answer ? 'hidden' : ''}`}>
+                  {(() => {
+                    const imgUrl = room.answer ? getReferenceImageUrl(room.theme, room.answer, room.sourceTheme) : null
+                    return imgUrl ? (
+                      <img
+                        src={imgUrl}
+                        alt="Reference"
+                        className={`w-full h-full object-contain${room.theme === 'anime' || room.sourceTheme === 'anime' ? ' manga-img' : ''}`}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                        }}
+                      />
+                    ) : null
+                  })()}
+                  <div className={`text-center text-gray-500 p-2 ${room.answer && getReferenceImageUrl(room.theme, room.answer, room.sourceTheme) ? 'hidden' : ''}`}>
                     <svg className="w-6 h-6 mx-auto mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                     </svg>

@@ -39,13 +39,13 @@ function SettingsForm({ room, onApply }: Readonly<{ room: Room; onApply: (settin
         <span className="text-white/80 font-medium text-sm mb-2 block font-caveat">Theme</span>
         <div className="flex flex-wrap gap-2">
           {[
-            { value: 'lol', label: '⚔️ LoL' },
-            { value: 'elden-ring', label: '🗡️ Elden Ring' },
-            { value: 'dbd', label: '🔪 DbD' },
-            { value: 'game-titles', label: '🎮 Games' },
-            { value: 'anime', label: '🌸 Anime' },
-            { value: 'crossverse', label: '🌀 Crossverse' },
-            { value: 'custom', label: '✏️ Custom' },
+            { value: 'lol', label: 'LoL' },
+            { value: 'elden-ring', label: 'Elden Ring' },
+            { value: 'dbd', label: 'DbD' },
+            { value: 'game-titles', label: 'Games' },
+            { value: 'anime', label: 'Anime' },
+            { value: 'crossverse', label: 'Crossverse' },
+            { value: 'custom', label: 'Custom' },
           ].map((t) => (
             <button
               key={t.value}
@@ -336,7 +336,6 @@ export default function RoomPage() {
   const isHost = room.host === socket?.id
   const allReady = room.players.every((p) => p.ready)
   const themeLabels: Record<string, string> = { lol: 'League of Legends', 'elden-ring': 'Elden Ring', dbd: 'Dead by Daylight', 'game-titles': 'Game Titles', anime: 'Anime', custom: 'Custom', crossverse: 'Crossverse' }
-  const themeEmojis: Record<string, string> = { lol: '⚔️', 'elden-ring': '🗡️', dbd: '🔪', 'game-titles': '🎮', anime: '🌸', custom: '✏️', crossverse: '🌀' }
 
   const MAX_PLAYERS = 20
 
@@ -497,7 +496,7 @@ export default function RoomPage() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
                       <span className="text-white/70 text-sm">Theme</span>
-                      <span className="text-white font-semibold text-sm">{themeEmojis[room.theme] || '🎮'} {themeLabels[room.theme] || room.theme}</span>
+                      <span className="text-white font-semibold text-sm">{themeLabels[room.theme] || room.theme}</span>
                     </div>
                     <div className="flex justify-between items-center py-2.5 px-3 bg-white/5 rounded-lg border border-white/10">
                       <span className="text-white/70 text-sm">Rounds</span>

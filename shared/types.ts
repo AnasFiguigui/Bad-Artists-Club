@@ -18,6 +18,7 @@ export interface Room {
   totalRounds: number
   drawer?: string
   answer?: string
+  sourceTheme?: string  // For crossverse: which theme the current character came from
   timer: number
   drawTime: number
   scores: Record<string, number>
