@@ -36,10 +36,10 @@ function getTimerColorNav(timerPercent: number): string {
 function renderCenterContent(props: Readonly<GameNavbarProps>): React.ReactNode {
   const { gameEnded, roundAnswer, isDrawer, answer, hint, themeColor, isChoosingWord } = props
   if (gameEnded) {
-    return <span className="font-bold text-sm sm:text-lg" style={{ color: themeColor || '#818cf8' }}>🎨 Free Draw!</span>
+    return <span className="font-bold text-sm sm:text-lg" style={{ color: themeColor || '#818cf8' }}>Free Draw!</span>
   }
   if (isChoosingWord) {
-    return <span className="font-bold text-sm sm:text-lg animate-pulse" style={{ color: themeColor || '#818cf8' }}>✏️ Choosing a word...</span>
+    return <span className="font-bold text-sm sm:text-lg animate-pulse" style={{ color: themeColor || '#818cf8' }}>Choosing a word...</span>
   }
   if (roundAnswer) {
     return (
