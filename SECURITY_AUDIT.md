@@ -44,7 +44,7 @@ These critical issues were discovered and **patched** during this audit session:
 - ✅ Per-room draw flood limit (120 draws/sec room-wide)
 - ✅ Reroll: 1 per 20 seconds
 - ✅ Per-IP connection limit (10 connections)
-- ✅ Chat: 3 messages per 2 seconds
+- ✅ Chat: 2 messages per 2 seconds
 
 **XSS Protection**
 - ✅ Zero `dangerouslySetInnerHTML`, `innerHTML`, or `eval()` usage

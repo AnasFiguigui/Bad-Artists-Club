@@ -412,7 +412,6 @@ export class GameManager {
     this.revealedHintPositions.delete(roomId)
 
     let timeRemaining = room.drawTime
-    const startTime = Date.now()
 
     const timer = setInterval(() => {
       timeRemaining--

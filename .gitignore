@@ -11,6 +11,8 @@ build/
 
 # Server
 dist/
+server/src/**/*.js
+shared/*.js
 .env
 .env.local
 .env.*.local

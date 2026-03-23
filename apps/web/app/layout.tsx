@@ -12,7 +12,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ backgroundColor: '#060010' }}>
+      <head>
+        <meta name="theme-color" content="#060010" />
+      </head>
       <body className={`${inter.className} ${caveat.variable}`}>{children}</body>
     </html>
   )

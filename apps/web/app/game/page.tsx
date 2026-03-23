@@ -33,7 +33,7 @@ function getReferenceImageUrl(theme: string, answer: string, sourceTheme?: strin
 
   // game-titles uses lowercase + underscores: "Resident Evil" → "resident_evil"
   if (effectiveTheme === 'game-titles') {
-    const filename = answer.toLowerCase().replace(/ /g, '_')
+    const filename = answer.toLowerCase().replaceAll(' ', '_')
     return `${baseUrl}/images/${folder}/${filename}.webp`
   }
   // dbd uses underscores: "Ghost face" → "Ghost_face"
@@ -773,7 +773,7 @@ export default function GamePage() {
   const isManga = room.theme === 'anime'
 
   const getTimerColor = () => {
-    if (timeRemaining > room.drawTime * 0.5) return isManga ? '#111' : themeColors.primary
+    if (timeRemaining > room.drawTime * 0.5) return isManga ? '#ffffff' : themeColors.primary
     if (timeRemaining > room.drawTime * 0.25) return '#eab308'
     return '#ef4444'
   }

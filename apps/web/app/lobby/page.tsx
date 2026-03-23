@@ -109,19 +109,6 @@ export default function LobbyPage() {
     }
   }, [username, router])
 
-  const handleReady = () => {
-    const socket = getSocket()
-    const roomId = gameStore.getState().roomId
-    console.log('Ready clicked - roomId:', roomId, 'socket.id:', socket.id)
-    if (roomId) {
-      socket.emit('ready', { roomId }, (response: any) => {
-        console.log('Ready response:', response)
-      })
-    } else {
-      console.error('No roomId available')
-    }
-  }
-
   const handleStartGame = () => {
     const socket = getSocket()
     const roomId = gameStore.getState().roomId
@@ -174,7 +161,6 @@ export default function LobbyPage() {
     )
   }
 
-  const isHost = room.host === gameStore.getState().currentPlayer?.id
   const allReady = room.players.every((p) => p.ready)
   const themeConfig = THEME_CONFIGS[config.theme] || THEME_CONFIGS['lol']
 
@@ -214,7 +200,7 @@ export default function LobbyPage() {
                     return (
                       <button
                         key={t.key}
-                        onClick={() => handleUpdateConfig({ theme: t.key as GameConfig['theme'] })}
+                        onClick={() => handleUpdateConfig({ theme: t.key })}
                         className={`rounded-lg overflow-hidden transition-all duration-200 border group ${
                           config.theme === t.key
                             ? 'border-white/50 shadow-lg scale-[1.02] ring-1 ring-white/30'
@@ -246,7 +232,7 @@ export default function LobbyPage() {
                   {ROUND_OPTIONS.map((r) => (
                     <button
                       key={r}
-                      onClick={() => handleUpdateConfig({ rounds: r as GameConfig['rounds'] })}
+                      onClick={() => handleUpdateConfig({ rounds: r })}
                       className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-200 border ${
                         config.rounds === r
                           ? 'bg-white/20 border-white/40 text-white shadow-lg'
@@ -266,7 +252,7 @@ export default function LobbyPage() {
                   {DRAW_TIME_OPTIONS.map((t) => (
                     <button
                       key={t}
-                      onClick={() => handleUpdateConfig({ drawTime: t as GameConfig['drawTime'] })}
+                      onClick={() => handleUpdateConfig({ drawTime: t })}
                       className={`py-2 rounded-lg text-sm font-bold transition-all duration-200 border ${
                         config.drawTime === t
                           ? 'bg-white/20 border-white/40 text-white shadow-lg'

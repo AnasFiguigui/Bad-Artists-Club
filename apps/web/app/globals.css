@@ -69,58 +69,59 @@ body {
   filter: grayscale(0%);
 }
 
-/* Manga-themed page overrides: high contrast black & white UI */
+/* Manga-themed page overrides: dark bg, bright white outlines & text */
 .manga-theme {
-  --manga-bg: #f5f5f0;
-  --manga-text: #111;
-  --manga-border: #333;
-  --manga-muted: #666;
-  --manga-accent: #000;
+  --manga-bg: #0a0a0a;
+  --manga-panel: #111111;
+  --manga-text: #f0f0f0;
+  --manga-border: rgba(255, 255, 255, 0.5);
+  --manga-muted: #aaa;
+  --manga-accent: #ffffff;
 }
 
-/* Override dark backgrounds → light when manga-theme is active */
+/* Backgrounds stay dark, pushed darker for contrast */
 .manga-theme,
 .manga-theme .bg-gray-950 { background-color: var(--manga-bg) !important; }
 .manga-theme .bg-gray-900\/50,
 .manga-theme .bg-gray-900\/80,
-.manga-theme .bg-gray-900\/90 { background-color: rgba(230, 230, 225, 0.85) !important; }
-.manga-theme .bg-gray-800 { background-color: #e0e0dc !important; }
-.manga-theme .bg-gray-800\/80 { background-color: rgba(224, 224, 220, 0.8) !important; }
-.manga-theme .bg-gray-800\/50 { background-color: rgba(224, 224, 220, 0.5) !important; }
-.manga-theme .bg-gray-700 { background-color: #ccc !important; }
+.manga-theme .bg-gray-900\/90 { background-color: rgba(17, 17, 17, 0.9) !important; }
+.manga-theme .bg-gray-800 { background-color: #1a1a1a !important; }
+.manga-theme .bg-gray-800\/80 { background-color: rgba(26, 26, 26, 0.8) !important; }
+.manga-theme .bg-gray-800\/50 { background-color: rgba(26, 26, 26, 0.5) !important; }
+.manga-theme .bg-gray-700 { background-color: #222 !important; }
 
-/* Text colors → dark */
+/* Text → bright white */
 .manga-theme .text-white { color: var(--manga-text) !important; }
 .manga-theme .text-gray-400,
 .manga-theme .text-gray-500 { color: var(--manga-muted) !important; }
-.manga-theme .text-gray-300 { color: #444 !important; }
+.manga-theme .text-gray-300 { color: #ccc !important; }
 
-/* Borders → manga-border */
+/* Borders → bright white outlines (the key manga look) */
 .manga-theme .border-gray-800,
 .manga-theme .border-gray-700,
 .manga-theme .border-gray-700\/50,
 .manga-theme .border-gray-600\/50 { border-color: var(--manga-border) !important; }
 
-/* White/glass overlays → manga style */
+/* Glass overlays → dark manga panels */
 .manga-theme .bg-white\/10,
-.manga-theme .backdrop-blur-xl { background-color: rgba(245,245,240,0.95) !important; }
+.manga-theme .backdrop-blur-xl { background-color: rgba(17, 17, 17, 0.95) !important; }
 .manga-theme .border-white\/20 { border-color: var(--manga-border) !important; }
 
-/* Input fields */
-.manga-theme input { background-color: #fff !important; color: #111 !important; border-color: #333 !important; }
-.manga-theme input::placeholder { color: #999 !important; }
+/* Input fields — dark bg, white text, white border */
+.manga-theme input { background-color: #1a1a1a !important; color: #e7e7e7 !important; border-color: rgba(255,255,255,0.4) !important; }
+.manga-theme input::placeholder { color: #777 !important; }
 
 /* Progress bar track */
-.manga-theme .bg-gray-800.rounded-full { background-color: #ddd !important; }
+.manga-theme .bg-gray-800.rounded-full { background-color: #222 !important; }
 
-/* Scrollbar for manga theme */
-.manga-theme ::-webkit-scrollbar-thumb { background: #999 !important; }
-.manga-theme ::-webkit-scrollbar-track { background: #e8e8e4 !important; }
+/* Scrollbar */
+.manga-theme ::-webkit-scrollbar-thumb { background: #555 !important; }
+.manga-theme ::-webkit-scrollbar-track { background: #111 !important; }
 
 /* Hover states */
-.manga-theme .hover\:bg-gray-700:hover { background-color: #d5d5d0 !important; }
+.manga-theme .hover\:bg-gray-700:hover { background-color: #2a2a2a !important; }
 .manga-theme .hover\:text-white:hover { color: var(--manga-text) !important; }
-.manga-theme .hover\:text-gray-300:hover { color: #444 !important; }
+.manga-theme .hover\:text-gray-300:hover { color: #ddd !important; }
 
 /* ===== GAME ANIMATIONS ===== */
 

@@ -54,7 +54,7 @@ export function PlayerLeaderboard({
   }
 
   return (
-    <div className="bg-gray-900/80 rounded-lg border border-gray-700/50 flex flex-col overflow-hidden">
+    <div className="mt-1 mr-1 bg-gray-900/80 rounded-lg border border-gray-700/50 flex flex-col overflow-hidden">
       <div className="px-3 py-2 border-b border-gray-700/50 flex items-center justify-between">
         <h3 className="text-sm font-bold text-white">Players ({activePlayers.length})</h3>
       </div>
