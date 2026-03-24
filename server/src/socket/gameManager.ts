@@ -324,6 +324,12 @@ export class GameManager {
     console.log(`[Game] Starting game in room ${roomId}`)
     this.roomManager.updateRoomState(roomId, 'playing')
 
+    // Shuffle player order so the host doesn't always draw first
+    for (let i = room.players.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[room.players[i], room.players[j]] = [room.players[j], room.players[i]]
+    }
+
     // Reset turn tracking
     room.turnIndex = 0
     room.round = 0
@@ -803,6 +809,13 @@ export class GameManager {
     this.roomManager.resetGameForRestart(roomId)
 
     const updatedRoom = this.roomManager.getRoom(roomId)!
+
+    // Shuffle player order so the drawer is random each game
+    for (let i = updatedRoom.players.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[updatedRoom.players[i], updatedRoom.players[j]] = [updatedRoom.players[j], updatedRoom.players[i]]
+    }
+
     this.io.to(roomId).emit('game-restarted', updatedRoom)
 
     // Start first turn after delay

@@ -29,7 +29,7 @@ function getReferenceImageUrl(theme: string, answer: string, sourceTheme?: strin
   const folder = THEME_IMAGE_FOLDERS[effectiveTheme]
   if (!folder) return null
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '')
 
   // game-titles uses lowercase + underscores: "Resident Evil" → "resident_evil"
   if (effectiveTheme === 'game-titles') {
@@ -907,7 +907,7 @@ export default function GamePage() {
             </div>
             <div className="flex items-center justify-between text-xs mt-1">
               <span className="text-gray-400">Turn</span>
-              <span className="text-white font-bold">{(room.turnIndex ?? 0) + 1}/{room.totalRounds * playerCount}</span>
+              <span className="text-white font-bold">{((room.turnIndex ?? 0) % playerCount) + 1}/{playerCount}</span>
             </div>
             <div className="mt-2 w-full bg-gray-800 rounded-full h-1.5">
               <div
@@ -986,7 +986,7 @@ export default function GamePage() {
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    {rerollsRemaining <= 0 ? 'No Rerolls' : rerollLocked ? 'Locked' : `Reroll (${rerollsRemaining})`}
+                    {rerollsRemaining <= 0 ? 'Reroll' : rerollLocked ? 'Locked' : 'Reroll'}
                   </button>
                 )}
                 <button
