@@ -1,4 +1,4 @@
-import type { Room, Player, GameConfig } from '../../../shared/types'
+import type { Room, Player, GameConfig } from '../../../shared/types.js'
 import crypto from 'node:crypto'
 
 export class RoomManager {

@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io'
-import { RoomManager } from './roomManager'
-import type { GameConfig, DrawStroke, Room } from '../../../shared/types'
+import { RoomManager } from './roomManager.js'
+import type { GameConfig, DrawStroke, Room } from '../../../shared/types.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'

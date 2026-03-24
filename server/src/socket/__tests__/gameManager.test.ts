@@ -14,8 +14,8 @@
 import { describe, it, expect, beforeEach, afterEach } from '@jest/globals'
 import { Server } from 'socket.io'
 import { createServer } from 'node:http'
-import { GameManager } from '../gameManager'
-import { RoomManager } from '../roomManager'
+import { GameManager } from '../gameManager.js'
+import { RoomManager } from '../roomManager.js'
 
 // @ts-ignore - jest is only available when jest is installed
 declare const jest: any
