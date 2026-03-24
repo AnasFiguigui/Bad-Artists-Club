@@ -52,7 +52,7 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
       textMuted: '#a89a78',
       gradient: 'linear-gradient(135deg, rgba(212, 168, 67, 0.4), rgba(139, 105, 20, 0.4))',
     },
-    referenceAspectRatio: '1/1',
+    referenceAspectRatio: '3/4',
     thumbnail: '/images/thumbnail/elden-ring.webp',
   },
   dbd: {
