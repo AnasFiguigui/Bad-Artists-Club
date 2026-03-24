@@ -11,6 +11,7 @@
     "noImplicitAny": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
+    "outDir": "dist",
     "types": ["node"]
   },
   "include": ["src"],

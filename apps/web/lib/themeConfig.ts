@@ -42,7 +42,7 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
     name: 'Elden Ring',
     description: 'Sketch the demigods and beasts of the Lands Between. Prepare to draw... and die.',
     colors: {
-      primary: '#d4a843',
+      primary: '#F2A840',
       primaryLight: '#f5deb3',
       primaryDark: '#8b6914',
       secondary: '#4a6741',

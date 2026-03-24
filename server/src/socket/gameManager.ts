@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import { RoomManager } from './roomManager'
-import { GameConfig, DrawStroke, Room } from '../../../shared/types'
+import type { GameConfig, DrawStroke, Room } from '../../../shared/types'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -92,7 +92,14 @@ export class GameManager {
   private loadCharacterData(): void {
     const __filename = fileURLToPath(import.meta.url)
     const __dirname = path.dirname(__filename)
-    const dataPath = path.join(__dirname, '..', '..', '..', 'data')
+
+    // Find server root (dir with package.json) - works in both dev and prod
+    let serverRoot = __dirname
+    while (!fs.existsSync(path.join(serverRoot, 'package.json'))) {
+      serverRoot = path.dirname(serverRoot)
+    }
+    // Data directory is at the monorepo root (parent of server/)
+    const dataPath = path.join(serverRoot, '..', 'data')
 
     const themes = [
       { key: 'lol', file: 'lolChampions.json' },
@@ -541,11 +548,11 @@ export class GameManager {
 
   private validateStroke(stroke: DrawStroke): boolean {
     if (!stroke || typeof stroke !== 'object') return false
-    if (typeof stroke.roomId !== 'string' || !/^[a-zA-Z0-9-]{1,36}$/.test(stroke.roomId)) return false
+    if (typeof stroke.roomId !== 'string' || !/^[a-f0-9-]{36}$/.test(stroke.roomId)) return false
     const maxPoints = stroke.partial ? 50 : 5000
     if (!Array.isArray(stroke.points) || stroke.points.length > maxPoints) return false
     if (typeof stroke.size !== 'number' || stroke.size < 1 || stroke.size > 100) return false
-    if (typeof stroke.color !== 'string' || stroke.color.length > 20) return false
+    if (typeof stroke.color !== 'string' || !/^#[0-9a-fA-F]{3,8}$/.test(stroke.color)) return false
     if (!['brush', 'eraser', 'fill', 'line', 'oval', 'rect', 'roundedRect', 'triangle', 'callout'].includes(stroke.tool)) return false
     if (stroke.partial !== undefined && typeof stroke.partial !== 'boolean') return false
     for (const p of stroke.points) {

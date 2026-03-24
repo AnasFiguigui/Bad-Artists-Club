@@ -1,12 +1,11 @@
-import { Room, Player, GameConfig } from '../../../shared/types'
-// @ts-ignore - uuid is installed but lacks type declarations
-import { v4 as uuidv4 } from 'uuid'
+import type { Room, Player, GameConfig } from '../../../shared/types'
+import crypto from 'node:crypto'
 
 export class RoomManager {
   private readonly rooms: Map<string, Room> = new Map()
 
   createRoom(hostId: string, username: string, config: GameConfig): Room {
-    const roomId = uuidv4().substring(0, 8)
+    const roomId = crypto.randomUUID()
     const host: Player = {
       id: hostId,
       username,

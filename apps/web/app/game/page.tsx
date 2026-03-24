@@ -17,9 +17,9 @@ import { playCorrectGuess, playTimerTick, playRoundStart, playGameEnd, playVote,
 const THEME_IMAGE_FOLDERS: Record<string, string> = {
   lol: 'lol',
   dbd: 'dbd',
+  'elden-ring': 'eldenring',
   'game-titles': 'games',
   anime: 'animes',
-  // elden-ring has no image folder
 }
 
 /** Build the reference image URL for a given theme + answer */
@@ -36,8 +36,8 @@ function getReferenceImageUrl(theme: string, answer: string, sourceTheme?: strin
     const filename = answer.toLowerCase().replaceAll(' ', '_')
     return `${baseUrl}/images/${folder}/${filename}.webp`
   }
-  // dbd uses underscores: "Ghost face" → "Ghost_face"
-  if (effectiveTheme === 'dbd') {
+  // dbd and elden-ring use underscores: "Ghost face" → "Ghost_face"
+  if (effectiveTheme === 'dbd' || effectiveTheme === 'elden-ring') {
     return `${baseUrl}/images/${folder}/${answer.replaceAll(' ', '_')}.webp`
   }
   // lol and anime: use encodeURIComponent (preserves spaces, special chars in filename)

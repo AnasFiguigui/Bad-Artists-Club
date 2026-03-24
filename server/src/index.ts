@@ -3,12 +3,19 @@ import { createServer } from 'node:http'
 import { Server, Socket } from 'socket.io'
 import cors from 'cors'
 import path from 'node:path'
+import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { RoomManager } from './socket/roomManager'
 import { GameManager } from './socket/gameManager'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Find server root (dir with package.json) - works in both dev (src/) and prod (dist/server/src/)
+let serverRoot = __dirname
+while (!fs.existsSync(path.join(serverRoot, 'package.json'))) {
+  serverRoot = path.dirname(serverRoot)
+}
 
 // Validate required env vars in production
 if (process.env.NODE_ENV === 'production' && !process.env.FRONTEND_URL) {
@@ -24,6 +31,7 @@ const io = new Server(httpServer, {
   },
   transports: ['websocket', 'polling'],
   perMessageDeflate: process.env.NODE_ENV !== 'production',
+  maxHttpBufferSize: 1e5, // 100KB max message
 })
 
 app.use(cors({
@@ -45,11 +53,12 @@ app.use((_req, res, next) => {
 
 // Serve static files (character images) with path traversal protection and cache
 app.use('/images', (req, res, next) => {
-  if (req.path.includes('..')) {
+  const decodedPath = decodeURIComponent(req.path)
+  if (decodedPath.includes('..') || !/^\/[a-zA-Z0-9_\-./]+$/.test(decodedPath)) {
     return res.status(400).json({ error: 'Invalid path' })
   }
   next()
-}, express.static(path.join(__dirname, '..', 'public', 'images'), { maxAge: '7d' }))
+}, express.static(path.join(serverRoot, 'public', 'images'), { maxAge: '7d' }))
 
 const roomManager = new RoomManager()
 const gameManager = new GameManager(io, roomManager)
@@ -96,7 +105,7 @@ app.get('/health', (req, res) => {
 })
 
 function isValidRoomId(roomId: unknown): roomId is string {
-  return typeof roomId === 'string' && /^[a-zA-Z0-9-]{1,36}$/.test(roomId)
+  return typeof roomId === 'string' && /^[a-f0-9-]{36}$/.test(roomId)
 }
 
 // Socket.IO events
@@ -352,6 +361,19 @@ io.on('connection', (socket: Socket) => {
 })
 
 const PORT = process.env.PORT || 3001
+
+// Periodic cleanup: remove stale rate limit entries every 60s
+setInterval(() => {
+  const now = Date.now()
+  for (const [socketId, events] of rateLimits.entries()) {
+    for (const [eventName, timestamps] of events.entries()) {
+      const fresh = timestamps.filter(t => now - t < 60000)
+      if (fresh.length === 0) events.delete(eventName)
+      else events.set(eventName, fresh)
+    }
+    if (events.size === 0) rateLimits.delete(socketId)
+  }
+}, 60000)
 
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
