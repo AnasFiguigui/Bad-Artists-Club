@@ -103,7 +103,7 @@ export const THEME_CONFIGS: Record<string, ThemeConfig> = {
       textMuted: '#aaaaaa',
       gradient: 'linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(200, 200, 200, 0.1))',
     },
-    referenceAspectRatio: '9/16',
+    referenceAspectRatio: '1/1',
     thumbnail: '/images/thumbnail/anime.webp',
   },
   custom: {
