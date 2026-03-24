@@ -262,6 +262,32 @@ export class GameManager {
     return this.sanitizeRoom(updatedRoom)
   }
 
+  /** Rejoin a room after socket reconnection (new socket ID) */
+  handleRejoinRoom(socket: Socket, roomId: string, username: string): (Room & { canvasStrokes?: DrawStroke[] }) | null {
+    const room = this.roomManager.getRoom(roomId)
+    if (!room) return null
+
+    const validatedUsername = this.validateUsername(username)
+
+    // Check if player is already in the room (shouldn't happen, but guard)
+    const existing = room.players.find((p: { id: string }) => p.id === socket.id)
+    if (!existing) {
+      console.log(`[Room] Player ${validatedUsername} (${socket.id}) rejoining room ${roomId}`)
+      this.roomManager.addPlayer(roomId, socket.id, validatedUsername)
+    }
+
+    socket.join(roomId)
+    this.socketToRoom.set(socket.id, roomId)
+
+    const updatedRoom = this.roomManager.getRoom(roomId)!
+    // Notify others
+    socket.to(roomId).emit('player-joined', this.sanitizeRoom(updatedRoom))
+
+    // Return room with canvas strokes so client can replay
+    const strokes = this.canvasStrokes.get(roomId) || []
+    return { ...this.sanitizeRoom(updatedRoom), canvasStrokes: strokes }
+  }
+
   handleReady(socket: Socket, roomId: string): void {
     const room = this.roomManager.getRoom(roomId)
     if (!room) throw new Error('Room not found')

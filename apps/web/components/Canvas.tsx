@@ -152,8 +152,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
       up: ((e: MouseEvent) => void) | null
     }>({ move: null, up: null })
 
-    // Remote stream tracking
-    const remoteStreamActiveRef = useRef(false)
+    // Remote stream tracking (per-userId for multi-player free draw)
+    const remoteStreamActiveRef = useRef<Set<string>>(new Set())
 
     // Stable callback refs (avoid stale closures in window event handlers)
     const onDrawRef = useRef(onDraw)
@@ -293,9 +293,9 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
 
     // Handle partial streaming stroke from remote drawer
     const handlePartialStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: DrawStroke) => {
-      if (!remoteStreamActiveRef.current) {
+      if (!remoteStreamActiveRef.current.has(stroke.userId)) {
         saveSnapshot()
-        remoteStreamActiveRef.current = true
+        remoteStreamActiveRef.current.add(stroke.userId)
       }
       if (SHAPE_TOOLS.has(stroke.tool) && stroke.points.length >= 2) {
         if (canvasRef.current && shapeSnapshotRef.current) {
@@ -317,8 +317,8 @@ export const Canvas = forwardRef<CanvasHandle, CanvasProps>(
         return
       }
 
-      if (remoteStreamActiveRef.current) {
-        remoteStreamActiveRef.current = false
+      if (remoteStreamActiveRef.current.has(stroke.userId)) {
+        remoteStreamActiveRef.current.delete(stroke.userId)
         if (SHAPE_TOOLS.has(stroke.tool) && stroke.points.length >= 2) {
           drawShapeOnCtx(ctx, stroke.tool, stroke.points[0], stroke.points.at(-1)!, stroke.color, stroke.size)
         }

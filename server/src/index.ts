@@ -54,7 +54,7 @@ app.use((_req, res, next) => {
 // Serve static files (character images) with path traversal protection and cache
 app.use('/images', (req, res, next) => {
   const decodedPath = decodeURIComponent(req.path)
-  if (decodedPath.includes('..') || !/^\/[a-zA-Z0-9_\-./]+$/.test(decodedPath)) {
+  if (decodedPath.includes('..')) {
     return res.status(400).json({ error: 'Invalid path' })
   }
   next()
@@ -207,6 +207,17 @@ io.on('connection', (socket: Socket) => {
     if (!isValidRoomId(data.roomId)) return callback({ success: false, room: null })
     const room = gameManager.handleRequestGameState(socket, data.roomId)
     callback({ success: !!room, room })
+  })
+
+  socket.on('rejoin-room', (data: { roomId: string; username: string }, callback) => {
+    if (typeof callback !== 'function') return
+    if (!rateLimit(socket.id, 'rejoin-room', 3, 5000)) {
+      return callback({ success: false, room: null })
+    }
+    if (!isValidRoomId(data.roomId)) return callback({ success: false, room: null })
+    if (!data.username || typeof data.username !== 'string') return callback({ success: false, room: null })
+    const result = gameManager.handleRejoinRoom(socket, data.roomId, data.username)
+    callback({ success: !!result, room: result })
   })
 
   socket.on('restart-game', (data: { roomId: string }, callback) => {

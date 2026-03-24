@@ -256,6 +256,49 @@ export default function GamePage() {
   // Keep mutedRef synced with muted state so socket callbacks read current value
   useEffect(() => { mutedRef.current = muted }, [muted])
 
+  // Handle socket reconnection — rejoin room with new socket ID
+  useEffect(() => {
+    if (!username || !roomId) return
+    const sock = initSocket()
+
+    const handleReconnect = () => {
+      console.log('[Game] Socket reconnected, rejoining room...')
+      sock.emit('rejoin-room', { roomId, username }, (response: { success: boolean; room: (Room & { canvasStrokes?: DrawStroke[] }) | null }) => {
+        if (response.success && response.room) {
+          console.log('[Game] Rejoined room successfully')
+          const { canvasStrokes, ...roomData } = response.room
+          setRoom(roomData)
+          gameStore.setState({ room: roomData })
+          setIsDrawer(roomData.drawer === sock.id)
+          if (roomData.state === 'results') setGameEnded(true)
+          if (canvasStrokes && canvasStrokes.length > 0) {
+            canvasRef.current?.clear()
+            setTimeout(() => replayStrokes(canvasStrokes), 100)
+          }
+        } else {
+          console.warn('[Game] Failed to rejoin room, redirecting to home')
+          router.push('/')
+        }
+      })
+    }
+
+    // 'connect' fires on reconnect too, but we only want this for reconnections
+    // Use the io.engine 'reconnect' or track if it's the first connect
+    let initialConnect = true
+    const onConnect = () => {
+      if (initialConnect) {
+        initialConnect = false
+        return
+      }
+      handleReconnect()
+    }
+    // If already connected, the first connect event won't fire, so mark initial done
+    if (sock.connected) initialConnect = false
+
+    sock.on('connect', onConnect)
+    return () => { sock.off('connect', onConnect) }
+  }, [username, roomId, router, replayStrokes])
+
   useEffect(() => {
     if (!username || !roomId) {
       console.log('[Game] Missing username or roomId, redirecting to home')
