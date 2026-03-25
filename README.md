@@ -319,9 +319,9 @@ Contributions welcome! Please:
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-## 📄 License
+<!-- ## 📄 License
 
-MIT License - See LICENSE file for details
+MIT License - See LICENSE file for details -->
 
 ## 🙏 Credits
 
@@ -329,7 +329,7 @@ MIT License - See LICENSE file for details
 - Character data from official game sources
 - Built with passion for multiplayer gaming
 
-## 📚 Documentation
+<!-- ## 📚 Documentation
 
 See additional docs:
 - [Socket.IO Event Flow](./SOCKET_IO_API.md) - Detailed event sequences
@@ -337,10 +337,10 @@ See additional docs:
 - [Drawing Specifications](./DRAWING_SPECIFICATIONS.md) - Canvas details
 - [Development Guide](./DEVELOPMENT.md) - Local setup & debugging
 - [Deployment Guide](./DEPLOYMENT.md) - Production setup
-- [Recent Updates](./RECENT_UPDATES.md) - Changelog
+- [Recent Updates](./RECENT_UPDATES.md) - Changelog -->
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 2.0+  
+**Last Updated**: March 2026  
+**Version**: 1.0+  
 **Status**: Production-ready for small servers, scaling in progress
